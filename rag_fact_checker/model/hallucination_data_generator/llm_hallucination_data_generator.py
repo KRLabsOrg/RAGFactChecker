@@ -85,15 +85,14 @@ class LLMHallucinationDataGenerator(HallucinationDataGenerator):
         self, reference_text: str, question: str
     ) -> HallucinationDataGeneratorOutput:
         """
-        Generates hallucination data from the original dataset using a triplet generator.
+        Perform forward pass for hallucination data generation.
 
         Args:
-            original_dataset (dict): The original dataset containing reference documents and questions.
-            triplet_generator (object): An object capable of generating triplets from answers.
+            question (str): The question to be asked.
+            reference_text (str): The reference text to be used for hallucination.
 
         Returns:
-            HallucinationDataGeneratorOutput
-            Attributes:
+            HallucinationDataGeneratorOutput: A dictionary containing the following:
                 - "generated_hlcntn_answer" (str): The generated hallucinated answer.
                 - "generated_non_hlcntn_answer" (str): The generated non-hallucinated answer.
                 - "hlcntn_part" (str): The hallucinated details.
