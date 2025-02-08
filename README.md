@@ -18,6 +18,8 @@ There are a couple of separate components in this library:
 - **Fact Checker**: Compares these triplets with those from a reference text to determine if they match (true/false).
 - **Hallucination Generator**: An LLM generator that generates hallucinated triplets from the reference documents. This is done in order to synthetically generate a dataset of hallucinated triplets.
 
+Please note that this fact-checking system was built and validated in https://huggingface.co/datasets/rag-datasets/rag-mini-bioasq dataset, specifically on the Thyroid topic. There is no guarantee that it will work for other datasets and might need more adjustments to be used for other datasets.
+
 ## Installation
 
 This is a pip installable package. To install it, run the following command:
