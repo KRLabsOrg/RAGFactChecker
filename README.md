@@ -10,6 +10,9 @@ The generic way of how it works is as follows:
 - Compare the triplets from the LLM answer with the triplets from the reference documents
 - If the triplets from the LLM answer are not present in the reference documents, it is a hallucination
 
+
+**NB**: This fact-checking system was built and validated in https://huggingface.co/datasets/rag-datasets/rag-mini-bioasq dataset, specifically on the Thyroid topic. There is no guarantee that it will work for other datasets and might need more adjustments to be used for other datasets.
+
 ## Main Features
 
 There are a couple of separate components in this library:
@@ -17,8 +20,6 @@ There are a couple of separate components in this library:
 - **Triplet Generator**: Extracts factual relationships from the input text in the form of triplets, which consist of a subject, predicate, and object. This is done using LLMs.
 - **Fact Checker**: Compares these triplets with those from a reference text to determine if they match (true/false).
 - **Hallucination Generator**: An LLM generator that generates hallucinated triplets from the reference documents. This is done in order to synthetically generate a dataset of hallucinated triplets.
-
-Please note that this fact-checking system was built and validated in https://huggingface.co/datasets/rag-datasets/rag-mini-bioasq dataset, specifically on the Thyroid topic. There is no guarantee that it will work for other datasets and might need more adjustments to be used for other datasets.
 
 ## Installation
 
