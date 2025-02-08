@@ -40,8 +40,9 @@ Below is a sample that shows how to import and use the `LLMTripletValidator` cla
 - `reference_text`: The reference documents which were fed to the LLM from the RAG system
 
 ```python
+import os
 from rag_fact_checker import LLMTripletValidator
-api_key = "your_openai_api_key"
+api_key = os.getenv("OPENAI_API_KEY", "your_openai_api_key")
 
 triplet_validator = LLMTripletValidator(
   input_config = {"triplet_generator": "llm_n_shot", "fact_checker": "llm_n_shot"},
@@ -66,7 +67,9 @@ DirectTextMatchOutput(
 
 ## Example runs
 ```python
+import os
 from rag_fact_checker import LLMTripletValidator
+api_key = os.getenv("OPENAI_API_KEY", "your_openai_api_key")
 
 triplet_validator = LLMTripletValidator(
     input_config={"logger_level": "DEBUG"}, openai_api_key=api_key
@@ -81,7 +84,10 @@ results = triplet_validator.validate_llm_triplets(
 Eventually, if you want only to generate the triplets using LLMs, you can use the following code:
 
 ```python
+import os
 from rag_fact_checker import LLMTripletValidator
+api_key = os.getenv("OPENAI_API_KEY", "your_openai_api_key")
+
 
 triplet_validator = LLMTripletValidator(
     input_config = {"triplet_generator": "llm_n_shot", "fact_checker": "llm_n_shot"},
@@ -96,7 +102,9 @@ results = triplet_validator.triplet_generation(
 Also, a usecase is to use Hallucinated Data Generation. 
 
 ```python
+import os
 from rag_fact_checker import LLMTripletValidator
+api_key = os.getenv("OPENAI_API_KEY", "your_openai_api_key")
 
 triplet_validator = LLMTripletValidator(
     input_config = {"triplet_generator": "llm_n_shot", "fact_checker": "llm_n_shot"},
@@ -119,10 +127,10 @@ For example, to customize model names, logging level, etc.:
 custom_config = {
     "model": {
         "triplet_generator": {
-            "model_name": "llm_n_shot" # Available values: "llm", "llm_n_shot"
+            "model_name": "llm_n_shot"
         },
         "fact_checker": {
-            "model_name": "llm" # Available values: "llm", "llm_split", "llm_n_shot", "llm_n_shot_split"
+            "model_name": "llm"
         }
     },
     "logger_level": "DEBUG"
