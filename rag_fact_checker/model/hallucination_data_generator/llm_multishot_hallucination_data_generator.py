@@ -1,7 +1,6 @@
 import logging
-from typing import List, Dict
 
-from rag_fact_checker.data import HallucinationDataGeneratorOutput, Config
+from rag_fact_checker.data import Config, HallucinationDataGeneratorOutput
 from rag_fact_checker.model.hallucination_data_generator import (
     HallucinationDataGenerator,
 )
@@ -41,7 +40,7 @@ class LLMMultiShotHallucinationDataGenerator(
 
     def get_model_prompt(
         self, reference_documents: list, question: str, **kwargs
-    ) -> List[Dict[str, str]]:
+    ) -> list[dict[str, str]]:
         """
         Generates a model prompt based on the provided reference documents and question.
 

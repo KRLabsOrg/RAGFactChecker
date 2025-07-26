@@ -1,14 +1,19 @@
 import logging
-from typing import Dict, List
 
 from rag_fact_checker.data import Config, TripletGeneratorOutput
 from rag_fact_checker.model.triplet_generator import (
     TripletGenerator,
 )
 from rag_fact_checker.pipeline import PipelineLLM, PipelinePrompt
+from rag_fact_checker.pipeline.simple_batch_processor import (
+    SimpleBatchProcessingMixin,
+    SimpleBatchResult,
+)
 
 
-class LLMTripletGenerator(TripletGenerator, PipelineLLM, PipelinePrompt):
+class LLMTripletGenerator(
+    TripletGenerator, PipelineLLM, PipelinePrompt, SimpleBatchProcessingMixin
+):
     """
     LLMTripletGenerator is a class that generates triplets from input data using a language model.
 
@@ -92,7 +97,7 @@ class LLMTripletGenerator(TripletGenerator, PipelineLLM, PipelinePrompt):
         )
 
     @property
-    def default_triplet(self) -> List[str]:
+    def default_triplet(self) -> list[str]:
         """
         Generates a default triplet.
         Returns:
@@ -100,7 +105,7 @@ class LLMTripletGenerator(TripletGenerator, PipelineLLM, PipelinePrompt):
         """
         return ["", "", ""]
 
-    def get_model_prompt(self, input_text: str, **kwargs) -> List[Dict[str, str]]:
+    def get_model_prompt(self, input_text: str, **kwargs) -> list[dict[str, str]]:
         """
         Create a prompt for triplet generation using the provided text input.
         Args:
@@ -124,7 +129,7 @@ class LLMTripletGenerator(TripletGenerator, PipelineLLM, PipelinePrompt):
             template_names, **self.triplet_generation_input_formatter(input_text)
         )
 
-    def triplet_generation_input_formatter(self, input_text: str) -> Dict[str, str]:
+    def triplet_generation_input_formatter(self, input_text: str) -> dict[str, str]:
         """
         Formats the input text for triplet generation.
 
@@ -138,7 +143,7 @@ class LLMTripletGenerator(TripletGenerator, PipelineLLM, PipelinePrompt):
 
     def parse_triplet_generation_output(
         self, triplet_generation_model_output: str
-    ) -> List[List[str]]:
+    ) -> list[list[str]]:
         """
         Parse JSON output to triplets.
         Args:
@@ -176,3 +181,41 @@ class LLMTripletGenerator(TripletGenerator, PipelineLLM, PipelinePrompt):
             self.logger.warning("Unexpected error parsing triplet output: %s", str(e))
             self.logger.debug("Raw triplet output: %s", triplet_generation_model_output)
             return [self.default_triplet]
+
+    # Batch processing methods
+    def forward_batch(
+        self, input_texts: list[str]
+    ) -> SimpleBatchResult[TripletGeneratorOutput]:
+        """
+        Process multiple input texts concurrently.
+
+        Args:
+            input_texts: List of input texts to generate triplets from
+
+        Returns:
+            SimpleBatchResult containing TripletGeneratorOutput for each successful input
+        """
+        return self.process_items_concurrently(input_texts, self.forward, "input_texts")
+
+    async def forward_batch_async(
+        self, input_texts: list[str]
+    ) -> SimpleBatchResult[TripletGeneratorOutput]:
+        """
+        Process multiple input texts concurrently with async support.
+
+        Args:
+            input_texts: List of input texts to generate triplets from
+
+        Returns:
+            SimpleBatchResult containing TripletGeneratorOutput for each successful input
+        """
+
+        async def async_forward(text: str) -> TripletGeneratorOutput:
+            import asyncio
+
+            loop = asyncio.get_event_loop()
+            return await loop.run_in_executor(None, self.forward, text)
+
+        return await self.process_items_concurrently_async(
+            input_texts, async_forward, "input_texts"
+        )

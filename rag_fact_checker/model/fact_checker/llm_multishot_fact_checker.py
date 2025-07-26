@@ -1,9 +1,8 @@
 import logging
-from typing import List, Dict
 
-from rag_fact_checker.data import FactCheckerOutput, Config
+from rag_fact_checker.data import Config, FactCheckerOutput
 from rag_fact_checker.model.fact_checker import FactChecker
-from rag_fact_checker.pipeline import PipelineLLM, PipelineDemonstration
+from rag_fact_checker.pipeline import PipelineDemonstration, PipelineLLM
 
 
 class LLMMultiShotFactChecker(FactChecker, PipelineLLM, PipelineDemonstration):
@@ -45,8 +44,8 @@ class LLMMultiShotFactChecker(FactChecker, PipelineLLM, PipelineDemonstration):
 
     def forward(
         self,
-        answer_triplets: List[List[str]],
-        reference_triplets: List[List[List[str]]],
+        answer_triplets: list[list[str]],
+        reference_triplets: list[list[list[str]]],
     ) -> FactCheckerOutput:
         """
         Perform a forward pass to fact-check the given answer triplets against reference triplets.
@@ -87,8 +86,8 @@ class LLMMultiShotFactChecker(FactChecker, PipelineLLM, PipelineDemonstration):
 
     def model_forward(
         self,
-        answer_triplets: List[List[str]],
-        reference_triplets: List[List[str]],
+        answer_triplets: list[list[str]],
+        reference_triplets: list[list[str]],
     ) -> FactCheckerOutput:
         # Build the prompt for the model by formatting the input triplets
         if self.config.model.fact_checker.inquiry_mode:
@@ -167,10 +166,10 @@ class LLMMultiShotFactChecker(FactChecker, PipelineLLM, PipelineDemonstration):
 
     def get_model_prompt(
         self,
-        answer_triplets: List[List[str]],
-        reference_triplets: List[List[str]],
+        answer_triplets: list[list[str]],
+        reference_triplets: list[list[str]],
         **kwargs,
-    ) -> List[Dict[str, str]]:
+    ) -> list[dict[str, str]]:
         # Use the template message with the formatted input (answer and reference triplets)
         template_names = self.message_list_template["n_shot_triplet_match_test"]
         return self.create_messages(
@@ -183,10 +182,10 @@ class LLMMultiShotFactChecker(FactChecker, PipelineLLM, PipelineDemonstration):
 
     def get_inquiry_model_prompt(
         self,
-        answer_triplets: List[List[str]],
-        reference_triplets: List[List[str]],
+        answer_triplets: list[list[str]],
+        reference_triplets: list[list[str]],
         **kwargs,
-    ) -> List[Dict[str, str]]:
+    ) -> list[dict[str, str]]:
         # Use the template message with the formatted input (answer and reference triplets)
         template_names = self.message_list_template["n_shot_triplet_match_test_inquiry"]
         return self.create_messages(
@@ -199,9 +198,9 @@ class LLMMultiShotFactChecker(FactChecker, PipelineLLM, PipelineDemonstration):
 
     def multishot_triplet_comparison_input_formatter(
         self,
-        answer_triplets: List[List[str]],
-        reference_triplets: List[List[str]],
-    ) -> Dict[str, str]:
+        answer_triplets: list[list[str]],
+        reference_triplets: list[list[str]],
+    ) -> dict[str, str]:
         """
         Format answer and reference triplets into strings suitable for LLM input.
 
@@ -304,7 +303,7 @@ class LLMMultiShotFactChecker(FactChecker, PipelineLLM, PipelineDemonstration):
                 match_output.update(
                     eval("{" + splitted_string_output.replace("-", "") + "}")
                 )
-            except Exception as e:
+            except Exception:
                 # If parsing fails, skip that entry
                 self.logger.warning(
                     f"Failed to parse fact checking output: '{fact_check_result_part}'. Skipping it"

@@ -1,7 +1,7 @@
-from abc import abstractmethod
 import logging
+from abc import abstractmethod
 
-from rag_fact_checker.data import TripletGeneratorOutput, Config
+from rag_fact_checker.data import Config, TripletGeneratorOutput
 from rag_fact_checker.pipeline import PipelineBase
 
 

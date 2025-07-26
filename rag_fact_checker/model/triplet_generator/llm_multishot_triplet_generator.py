@@ -1,6 +1,4 @@
 import logging
-from typing import Dict, List
-
 
 from rag_fact_checker.data import Config, TripletGeneratorOutput
 from rag_fact_checker.model.triplet_generator import (
@@ -103,7 +101,7 @@ class LLMMultiShotTripletGenerator(
 
         return ["", "", ""]
 
-    def get_model_prompt(self, input_text: str) -> List[Dict[str, str]]:
+    def get_model_prompt(self, input_text: str) -> list[dict[str, str]]:
         """
         Create a prompt for triplet generation using the provided text input.
 
@@ -123,7 +121,7 @@ class LLMMultiShotTripletGenerator(
             template_names, **self.triplet_generation_input_formatter(input_text)
         )
 
-    def triplet_generation_input_formatter(self, input_text: str) -> Dict[str, str]:
+    def triplet_generation_input_formatter(self, input_text: str) -> dict[str, str]:
         """
         Formats the input text for triplet generation.
 
@@ -140,7 +138,7 @@ class LLMMultiShotTripletGenerator(
 
     def parse_triplet_generation_output(
         self, triplet_generation_output: str
-    ) -> List[List[str]]:
+    ) -> list[list[str]]:
         """
         Parse JSON output to triplets.
         Args:

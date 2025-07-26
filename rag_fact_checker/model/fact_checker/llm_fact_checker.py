@@ -1,10 +1,12 @@
 import logging
-from typing import List, Dict
 
-
-from rag_fact_checker.data import FactCheckerOutput, Config
+from rag_fact_checker.data import Config, FactCheckerOutput
 from rag_fact_checker.model.fact_checker import FactChecker
 from rag_fact_checker.pipeline import PipelineLLM, PipelinePrompt
+from rag_fact_checker.pipeline.simple_batch_processor import (
+    SimpleBatchProcessingMixin,
+    SimpleBatchResult,
+)
 
 """
 A fact checker class that uses a Large Language Model (LLM) to compare
@@ -13,7 +15,9 @@ whether each answer triplet is True or False.
 """
 
 
-class LLMFactChecker(FactChecker, PipelineLLM, PipelinePrompt):
+class LLMFactChecker(
+    FactChecker, PipelineLLM, PipelinePrompt, SimpleBatchProcessingMixin
+):
     """
     LLMFactChecker is designed to compare answer triplets with reference triplets using a language model.
     The model compares a answer triplet with the reference triplets with LLM and returns the merged comparison result. Plus, it has the inquiry mode which adds reasons for final prediction in CoT sytled explanation.
@@ -53,8 +57,8 @@ class LLMFactChecker(FactChecker, PipelineLLM, PipelinePrompt):
 
     def forward(
         self,
-        answer_triplets: List[List[str]],
-        reference_triplets: List[List[List[str]]],
+        answer_triplets: list[list[str]],
+        reference_triplets: list[list[list[str]]],
     ) -> FactCheckerOutput:
         """
         Perform a forward pass to fact-check the given answer triplets against reference triplets.
@@ -96,8 +100,8 @@ class LLMFactChecker(FactChecker, PipelineLLM, PipelinePrompt):
 
     def model_forward(
         self,
-        answer_triplets: List[List[str]],
-        reference_triplets: List[List[str]],
+        answer_triplets: list[list[str]],
+        reference_triplets: list[list[str]],
     ) -> FactCheckerOutput:
         # Build the prompt for the model by formatting the input triplets
         if self.config.model.fact_checker.inquiry_mode:
@@ -175,10 +179,10 @@ class LLMFactChecker(FactChecker, PipelineLLM, PipelinePrompt):
 
     def get_model_prompt(
         self,
-        answer_triplets: List[List[str]],
-        reference_triplets: List[List[str]],
+        answer_triplets: list[list[str]],
+        reference_triplets: list[list[str]],
         **kwargs,
-    ) -> List[Dict[str, str]]:
+    ) -> list[dict[str, str]]:
         """
         Generate the model prompt by using a template and providing formatted input.
 
@@ -201,10 +205,10 @@ class LLMFactChecker(FactChecker, PipelineLLM, PipelinePrompt):
 
     def get_inquiry_model_prompt(
         self,
-        answer_triplets: List[List[str]],
-        reference_triplets: List[List[str]],
+        answer_triplets: list[list[str]],
+        reference_triplets: list[list[str]],
         **kwargs,
-    ) -> List[Dict[str, str]]:
+    ) -> list[dict[str, str]]:
         # Use the template message with the formatted input (answer and reference triplets)
         template_names = self.message_list_template["triplet_match_test_inquiry"]
         return self.create_messages(
@@ -217,9 +221,9 @@ class LLMFactChecker(FactChecker, PipelineLLM, PipelinePrompt):
 
     def triplet_comparison_input_formatter(
         self,
-        answer_triplets: List[List[str]],
-        reference_triplets: List[List[str]],
-    ) -> Dict[str, str]:
+        answer_triplets: list[list[str]],
+        reference_triplets: list[list[str]],
+    ) -> dict[str, str]:
         """
         Format answer and reference triplets into strings suitable for LLM input.
 
@@ -243,7 +247,7 @@ class LLMFactChecker(FactChecker, PipelineLLM, PipelinePrompt):
             ),
         }
 
-    def parse_triplet_comparison_output(self, string_output: str) -> Dict[int, bool]:
+    def parse_triplet_comparison_output(self, string_output: str) -> dict[int, bool]:
         """
         Parse JSON output from the fact checking model.
 
@@ -287,7 +291,7 @@ class LLMFactChecker(FactChecker, PipelineLLM, PipelinePrompt):
 
     def parse_triplet_comparison_inquiry_output(
         self, string_output: str
-    ) -> Dict[int, bool]:
+    ) -> dict[int, bool]:
         """
         Parse the raw string output from the LLM into a structured dictionary of triplet results.
 
@@ -318,7 +322,7 @@ class LLMFactChecker(FactChecker, PipelineLLM, PipelinePrompt):
                 match_output.update(
                     eval("{" + splitted_string_output.replace("-", "") + "}")
                 )
-            except Exception as e:
+            except Exception:
                 # If parsing fails, skip that entry
                 self.logger.warning(
                     f"Failed to parse fact checking output: '{fact_check_result_part}'. Skipping it"
@@ -326,3 +330,67 @@ class LLMFactChecker(FactChecker, PipelineLLM, PipelinePrompt):
                 self.logger.debug("Error occured in : %s", fact_check_result_part)
                 pass
         return match_output
+
+    # Batch processing methods
+    def forward_batch(
+        self,
+        answer_triplets_batch: list[list[list[str]]],
+        reference_triplets_batch: list[list[list[list[str]]]],
+    ) -> SimpleBatchResult[FactCheckerOutput]:
+        """
+        Process multiple fact checking tasks concurrently.
+
+        Args:
+            answer_triplets_batch: List of answer triplet sets to check
+            reference_triplets_batch: List of reference triplet sets to compare against
+
+        Returns:
+            SimpleBatchResult containing FactCheckerOutput for each successful comparison
+        """
+        if len(answer_triplets_batch) != len(reference_triplets_batch):
+            raise ValueError("Answer and reference batch sizes must match")
+
+        # Create tuples for processing
+        fact_check_tasks = list(zip(answer_triplets_batch, reference_triplets_batch))
+
+        def process_single_task(task_tuple):
+            answer_triplets, reference_triplets = task_tuple
+            return self.forward(answer_triplets, reference_triplets)
+
+        return self.process_items_concurrently(
+            fact_check_tasks, process_single_task, "fact_check_tasks"
+        )
+
+    async def forward_batch_async(
+        self,
+        answer_triplets_batch: list[list[list[str]]],
+        reference_triplets_batch: list[list[list[list[str]]]],
+    ) -> SimpleBatchResult[FactCheckerOutput]:
+        """
+        Process multiple fact checking tasks concurrently with async support.
+
+        Args:
+            answer_triplets_batch: List of answer triplet sets to check
+            reference_triplets_batch: List of reference triplet sets to compare against
+
+        Returns:
+            SimpleBatchResult containing FactCheckerOutput for each successful comparison
+        """
+        if len(answer_triplets_batch) != len(reference_triplets_batch):
+            raise ValueError("Answer and reference batch sizes must match")
+
+        # Create tuples for processing
+        fact_check_tasks = list(zip(answer_triplets_batch, reference_triplets_batch))
+
+        async def async_process_task(task_tuple):
+            import asyncio
+
+            answer_triplets, reference_triplets = task_tuple
+            loop = asyncio.get_event_loop()
+            return await loop.run_in_executor(
+                None, self.forward, answer_triplets, reference_triplets
+            )
+
+        return await self.process_items_concurrently_async(
+            fact_check_tasks, async_process_task, "fact_check_tasks"
+        )

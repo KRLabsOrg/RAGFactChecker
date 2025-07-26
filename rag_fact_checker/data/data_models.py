@@ -1,4 +1,3 @@
-from typing import List, Dict, Optional
 from dataclasses import dataclass
 
 
@@ -27,17 +26,34 @@ class TripletGeneratorConfig:
 
 
 @dataclass
+class FactCheckerConfig:
+    inquiry_mode: bool = False
+    split_reference_triplets: bool = False
+
+
+@dataclass
 class LLMConfig:
     generator_model: str
     request_max_try: int
     temperature: float
-    api_key: Optional[str]
+    api_key: str | None
+
+
+@dataclass
+class SimpleBatchConfig:
+    """Configuration for simple batch processing."""
+
+    max_workers: int = 5  # Number of concurrent threads
+    max_retries: int = 3  # Maximum retries for failed items
+    retry_delay: float = 1.0  # Delay between retries in seconds
+    timeout: float | None = None  # Timeout per individual call
 
 
 @dataclass
 class ModelConfig:
     answer_generator: AnswerGeneratorConfig
     triplet_generator: TripletGeneratorConfig
+    fact_checker: FactCheckerConfig
     llm: LLMConfig
 
 
@@ -58,17 +74,18 @@ class Config:
     experiment_setup: ExperimentSetupConfig
     model: ModelConfig
     path: PathConfig
-    logger_level: Optional[str] = None
+    logger_level: str | None = None
+    simple_batch_config: SimpleBatchConfig | None = None
 
 
 @dataclass
 class TripletGeneratorOutput:
-    triplets: List[List[str]]
+    triplets: list[list[str]]
 
 
 @dataclass
 class FactCheckerOutput:
-    fact_check_prediction_binary: Dict[str, bool]
+    fact_check_prediction_binary: dict[str, bool]
 
 
 @dataclass
@@ -80,6 +97,6 @@ class HallucinationDataGeneratorOutput:
 
 @dataclass
 class DirectTextMatchOutput:
-    input_triplets: List[List[str]]
-    reference_triplets: List[List[str]]
-    fact_check_prediction_binary: Dict[str, bool]
+    input_triplets: list[list[str]]
+    reference_triplets: list[list[str]]
+    fact_check_prediction_binary: dict[str, bool]

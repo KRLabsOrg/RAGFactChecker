@@ -1,8 +1,7 @@
-from abc import abstractmethod
-from typing import List
 import logging
+from abc import abstractmethod
 
-from rag_fact_checker.data import FactCheckerOutput, Config
+from rag_fact_checker.data import Config, FactCheckerOutput
 from rag_fact_checker.pipeline import PipelineBase
 
 
@@ -27,8 +26,8 @@ class FactChecker(PipelineBase):
     @abstractmethod
     def forward(
         self,
-        answer_triplets: List[List[str]],
-        reference_triplets: List[List[List[str]]],
+        answer_triplets: list[list[str]],
+        reference_triplets: list[list[list[str]]],
     ) -> FactCheckerOutput:
         """
         Generate triplets from the data
@@ -36,15 +35,15 @@ class FactChecker(PipelineBase):
         raise NotImplementedError
 
     def flatten_triplets(
-        self, triplet_segments: List[List[List[str]]]
-    ) -> List[List[str]]:
+        self, triplet_segments: list[list[list[str]]]
+    ) -> list[list[str]]:
         """
         Flatten the list of triplets into a single list of strings.
         """
         return [triplet for sublist in triplet_segments for triplet in sublist]
 
     def merge_segment_outputs(
-        self, output_list: List[FactCheckerOutput]
+        self, output_list: list[FactCheckerOutput]
     ) -> FactCheckerOutput:
         if not output_list:
             self.logger.error("Empty fect check output list")

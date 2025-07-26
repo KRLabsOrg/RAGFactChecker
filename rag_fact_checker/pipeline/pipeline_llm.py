@@ -1,4 +1,5 @@
 from openai import OpenAI
+
 from rag_fact_checker.data import Config
 from rag_fact_checker.pipeline.pipeline_base import PipelineBase
 

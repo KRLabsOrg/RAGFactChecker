@@ -20,6 +20,9 @@ There are a couple of separate components in this library:
 - **Triplet Generator**: Extracts factual relationships from the input text in the form of triplets, which consist of a subject, predicate, and object. This is done using LLMs.
 - **Fact Checker**: Compares these triplets with those from a reference text to determine if they match (true/false).
 - **Hallucination Generator**: An LLM generator that generates hallucinated triplets from the reference documents. This is done in order to synthetically generate a dataset of hallucinated triplets.
+- **Answer-Based Hallucination Generator**: Generates controlled hallucinations by taking correct answers and injecting specific types of errors (factual, temporal, numerical, relational, contextual, omission) with configurable intensity levels.
+- **Batch Processing**: All components support concurrent processing of multiple items using threading for improved performance.
+- **Async Support**: Full asynchronous support with semaphore-based concurrency limiting for non-blocking operations.
 
 ## Installation
 
@@ -95,8 +98,51 @@ triplet_validator = LLMTripletValidator(
 
 results = triplet_validator.generate_hlcntn_data(
     question="Which genes does thyroid hormone receptor beta1 regulate in the liver?",
-    reference_text=["The carbohydrate response element-binding protein (ChREBP) and sterol response element-binding protein (SREBP)-1c, regulated by liver X receptors (LXRs), play central roles in hepatic lipogenesis. Because LXRs and thyroid hormone receptors (TRs) influence each other’s transcriptional activity, researchers investigated whether TRs control ChREBP expression. They found that thyroid hormone (T3) and TR-beta1 upregulate ChREBP by binding direct repeat-4 elements (LXRE1/2), thereby fine-tuning hepatic lipid metabolism."]
+    reference_text=["The carbohydrate response element-binding protein (ChREBP) and sterol response element-binding protein (SREBP)-1c, regulated by liver X receptors (LXRs), play central roles in hepatic lipogenesis. Because LXRs and thyroid hormone receptors (TRs) influence each other's transcriptional activity, researchers investigated whether TRs control ChREBP expression. They found that thyroid hormone (T3) and TR-beta1 upregulate ChREBP by binding direct repeat-4 elements (LXRE1/2), thereby fine-tuning hepatic lipid metabolism."]
 )
+```
+
+### Answer-Based Hallucination Generation
+
+For generating controlled hallucinations from correct answers:
+
+```python
+from rag_fact_checker.model.hallucination_data_generator import AnswerBasedHallucinationDataGenerator
+from rag_fact_checker.data import Config, ErrorType
+import logging
+
+config = Config()
+logger = logging.getLogger(__name__)
+generator = AnswerBasedHallucinationDataGenerator(config, logger)
+
+# Generate hallucination with specific error type and intensity
+result = generator.generate_hallucination(
+    correct_answer="Paris is the capital of France and has a population of 2.1 million.",
+    error_type=ErrorType.FACTUAL,
+    intensity=0.7
+)
+print(result.hallucinated_answer)  # Answer with injected factual errors
+```
+
+### Batch Processing
+
+Process multiple items concurrently:
+
+```python
+# Batch triplet generation
+input_texts = ["Text 1", "Text 2", "Text 3"]
+batch_result = triplet_generator.forward_batch(input_texts)
+
+# Batch fact checking
+answer_triplets_batch = [[[["Subject", "predicate", "object"]], ...]]
+reference_triplets_batch = [[[["Ref", "predicate", "object"]], ...]]
+fact_check_result = fact_checker.forward_batch(answer_triplets_batch, reference_triplets_batch)
+
+# Async batch processing
+import asyncio
+async def process_async():
+    result = await triplet_generator.forward_batch_async(input_texts)
+    return result
 ```
 
 
@@ -119,7 +165,27 @@ custom_config = {
 }
 ```
 
-Available Models
-- Triplet generator : "llm", "llm_n_shot"
-- Fact checker : "llm", "llm_split", "llm_n_shot", "llm_n_shot_split"
-- Logger level : "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL", "NOTSET"
+### Available Models
+- **Triplet generator**: "llm", "llm_n_shot" 
+- **Fact checker**: "llm", "llm_split", "llm_n_shot", "llm_n_shot_split"
+- **Hallucination generator**: "llm", "llm_n_shot", "answer_based"
+- **Logger level**: "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL", "NOTSET"
+
+### Batch Processing Configuration
+```python
+batch_config = {
+    "simple_batch_config": {
+        "max_workers": 5,          # Number of concurrent threads
+        "max_concurrent": 10,      # Max concurrent async operations
+        "timeout": 30.0           # Timeout per operation in seconds
+    }
+}
+```
+
+### Error Types for Answer-Based Hallucination
+- **FACTUAL**: Incorrect facts and information
+- **TEMPORAL**: Wrong dates, times, or temporal relationships  
+- **NUMERICAL**: Incorrect numbers, quantities, measurements
+- **RELATIONAL**: Wrong relationships between entities
+- **CONTEXTUAL**: Information out of context or misapplied
+- **OMISSION**: Missing critical information

@@ -1,13 +1,18 @@
 import logging
-from typing import List, Dict
 
-from rag_fact_checker.data import HallucinationDataGeneratorOutput, Config
+from rag_fact_checker.data import Config, HallucinationDataGeneratorOutput
 from rag_fact_checker.model.hallucination_data_generator import (
     HallucinationDataGenerator,
 )
+from rag_fact_checker.pipeline.simple_batch_processor import (
+    SimpleBatchProcessingMixin,
+    SimpleBatchResult,
+)
 
 
-class LLMHallucinationDataGenerator(HallucinationDataGenerator):
+class LLMHallucinationDataGenerator(
+    HallucinationDataGenerator, SimpleBatchProcessingMixin
+):
     """
     This class contains hallucination pipelines to generate hallucination data.
 
@@ -45,7 +50,7 @@ class LLMHallucinationDataGenerator(HallucinationDataGenerator):
 
     def get_model_prompt(
         self, reference_documents: list, question: str, **kwargs
-    ) -> List[Dict[str, str]]:
+    ) -> list[dict[str, str]]:
         """
         Generates a model prompt for hallucinated data generation.
 
@@ -201,3 +206,63 @@ class LLMHallucinationDataGenerator(HallucinationDataGenerator):
             non_hlcntn_answer, hlcntn_answer, hlcntn_part = "", "", ""
 
         return non_hlcntn_answer, hlcntn_answer, hlcntn_part
+
+    # Batch processing methods
+    def generate_hlcntn_data_batch(
+        self, reference_texts: list[str], questions: list[str]
+    ) -> SimpleBatchResult[HallucinationDataGeneratorOutput]:
+        """
+        Generate hallucination data for multiple reference text and question pairs concurrently.
+
+        Args:
+            reference_texts: List of reference texts
+            questions: List of questions
+
+        Returns:
+            SimpleBatchResult containing HallucinationDataGeneratorOutput for each successful generation
+        """
+        if len(reference_texts) != len(questions):
+            raise ValueError("Reference texts and questions batch sizes must match")
+
+        # Create tuples for processing
+        generation_tasks = list(zip(reference_texts, questions))
+
+        def process_single_task(task_tuple):
+            reference_text, question = task_tuple
+            return self.generate_hlcntn_data(reference_text, question)
+
+        return self.process_items_concurrently(
+            generation_tasks, process_single_task, "hallucination_generation_tasks"
+        )
+
+    async def generate_hlcntn_data_batch_async(
+        self, reference_texts: list[str], questions: list[str]
+    ) -> SimpleBatchResult[HallucinationDataGeneratorOutput]:
+        """
+        Generate hallucination data for multiple reference text and question pairs concurrently with async support.
+
+        Args:
+            reference_texts: List of reference texts
+            questions: List of questions
+
+        Returns:
+            SimpleBatchResult containing HallucinationDataGeneratorOutput for each successful generation
+        """
+        if len(reference_texts) != len(questions):
+            raise ValueError("Reference texts and questions batch sizes must match")
+
+        # Create tuples for processing
+        generation_tasks = list(zip(reference_texts, questions))
+
+        async def async_process_task(task_tuple):
+            import asyncio
+
+            reference_text, question = task_tuple
+            loop = asyncio.get_event_loop()
+            return await loop.run_in_executor(
+                None, self.generate_hlcntn_data, reference_text, question
+            )
+
+        return await self.process_items_concurrently_async(
+            generation_tasks, async_process_task, "hallucination_generation_tasks"
+        )

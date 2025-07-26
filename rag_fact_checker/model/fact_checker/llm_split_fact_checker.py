@@ -1,7 +1,6 @@
 import logging
-from typing import List, Dict
 
-from rag_fact_checker.data import FactCheckerOutput, Config
+from rag_fact_checker.data import Config, FactCheckerOutput
 from rag_fact_checker.model.fact_checker import FactChecker
 from rag_fact_checker.pipeline import PipelineLLM, PipelinePrompt
 
@@ -40,8 +39,8 @@ class LLMSplitFactChecker(FactChecker, PipelineLLM, PipelinePrompt):
 
     def forward(
         self,
-        answer_triplets: List[List[str]],
-        reference_triplets: List[List[List[str]]],
+        answer_triplets: list[list[str]],
+        reference_triplets: list[list[list[str]]],
     ) -> FactCheckerOutput:
         """
         Compares all answer triplet with reference triplets using a model and returns the comparison results.
@@ -80,10 +79,10 @@ class LLMSplitFactChecker(FactChecker, PipelineLLM, PipelinePrompt):
 
     def get_model_prompt(
         self,
-        answer_triplets: List[List[str]],
-        reference_triplets: List[List[str]],
+        answer_triplets: list[list[str]],
+        reference_triplets: list[list[str]],
         **kwargs,
-    ) -> List[Dict[str, str]]:
+    ) -> list[dict[str, str]]:
         """
         Generates a model prompt based on the provided answer and reference triplets.
 
@@ -106,9 +105,9 @@ class LLMSplitFactChecker(FactChecker, PipelineLLM, PipelinePrompt):
 
     def splitted_triplet_comparison_input_formatter(
         self,
-        answer_triplets: List[List[str]],
-        reference_triplets: List[List[str]],
-    ) -> Dict[str, str]:
+        answer_triplets: list[list[str]],
+        reference_triplets: list[list[str]],
+    ) -> dict[str, str]:
         """
         Formats the input for comparing answer triplets with reference triplets.
 
@@ -127,7 +126,7 @@ class LLMSplitFactChecker(FactChecker, PipelineLLM, PipelinePrompt):
         }
 
     def parse_splitted_triplet_comparison_output(
-        self, string_output: str, answer_triplets: List[List[str]]
+        self, string_output: str, answer_triplets: list[list[str]]
     ) -> bool:
         """
         Parses the output string from a triplet comparison and extracts the final answer.

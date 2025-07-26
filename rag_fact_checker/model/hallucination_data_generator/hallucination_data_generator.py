@@ -1,7 +1,7 @@
-from abc import abstractmethod
 import logging
+from abc import abstractmethod
 
-from rag_fact_checker.data import HallucinationDataGeneratorOutput, Config
+from rag_fact_checker.data import Config, HallucinationDataGeneratorOutput
 from rag_fact_checker.pipeline import PipelineLLM, PipelinePrompt
 
 

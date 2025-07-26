@@ -1,5 +1,4 @@
 from abc import abstractmethod
-from typing import Dict, List
 
 from easydict import EasyDict as edict
 
@@ -31,7 +30,7 @@ class PipelinePrompt(PipelineBase):
 
     def define_prompt_template(
         self, template_dict: dict, message_type: str
-    ) -> Dict[str, str]:
+    ) -> dict[str, str]:
         """
         Defines a prompt template based on the message type.
 
@@ -54,7 +53,7 @@ class PipelinePrompt(PipelineBase):
 
     def get_prompt_templates(
         self,
-    ) -> Dict[str, Dict[str, str]]:
+    ) -> dict[str, dict[str, str]]:
         """
         Retrieves and constructs all prompt templates from the configuration.
 
@@ -69,7 +68,7 @@ class PipelinePrompt(PipelineBase):
                 )
         return prompt_templates
 
-    def get_message_list_templates(self) -> Dict[str, List[str]]:
+    def get_message_list_templates(self) -> dict[str, list[str]]:
         """
         Generates a dictionary of message list templates for different purposes.
 
@@ -99,8 +98,8 @@ class PipelinePrompt(PipelineBase):
         return template["format"].format(**kwargs)
 
     def create_messages(
-        self, template_names: List[str], **kwargs
-    ) -> List[Dict[str, str]]:
+        self, template_names: list[str], **kwargs
+    ) -> list[dict[str, str]]:
         """
         Creates a list of messages for OpenAI API from template names.
 
@@ -119,7 +118,7 @@ class PipelinePrompt(PipelineBase):
         return messages
 
     @abstractmethod
-    def get_model_prompt(self, **kwargs) -> List[Dict[str, str]]:
+    def get_model_prompt(self, **kwargs) -> list[dict[str, str]]:
         """
         Abstract method to be implemented in subclasses, defining how the model prompt is constructed.
 

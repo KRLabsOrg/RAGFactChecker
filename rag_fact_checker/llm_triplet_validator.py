@@ -1,20 +1,19 @@
 import os
-from typing import List
 
 from easydict import EasyDict as edict
 
 from rag_fact_checker.data import (
     Config,
     DirectTextMatchOutput,
-    TripletGeneratorOutput,
     HallucinationDataGeneratorOutput,
+    TripletGeneratorOutput,
 )
 from rag_fact_checker.model import model_name_class_mapping
 from rag_fact_checker.pipeline import PipelineBase
 from rag_fact_checker.utils import (
+    DEFAULT_CONFIG,
     ExperimentLogger,
     override_config,
-    DEFAULT_CONFIG,
 )
 
 
@@ -170,7 +169,7 @@ class LLMTripletValidator(PipelineBase):
         return result
 
     def generate_hlcntn_data(
-        self, question: str, reference_text: List[str]
+        self, question: str, reference_text: list[str]
     ) -> HallucinationDataGeneratorOutput:
         """
         Perform forward pass for hallucination data generation.

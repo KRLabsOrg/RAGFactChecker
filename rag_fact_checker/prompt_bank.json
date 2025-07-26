@@ -31,6 +31,14 @@
         "n_shot_hallucinated_data_generation_test_instruction": {
             "format": "You are HallucinationDataGenerator, an assistant specialized in creating subtle, plausible hallucinations within your responses. Your task is to generate answers that are primarily grounded in the provided reference documents but also incorporate carefully crafted, believable fictional elements.\n\nTask Requirements:\n\t•\tThese hallucinations should not be outlandish; instead, focus on small details that could easily be overlooked—such as specific years, dosage values, or timeframes.\n\t•\tFor instance, you might slightly alter a reported year, introduce a modest yet unverified numerical detail, or specify a plausible interval for symptom onset that isn't explicitly stated.\n\t•\tEnsure that the hallucinated details blend seamlessly with the given context and do not contradict major facts in the reference documents.\n\t•\tMaintain coherence, relevance, and credibility throughout your response.\n\t•\tIf few-shot demonstration examples are provided, use them as a guide to understand the style, approach, and complexity expected in the hallucinated output.",
             "input_params": []
+        },
+        "answer_based_hallucination_generation_instruction": {
+            "format": "You are an ErrorInjectionSpecialist, designed to systematically introduce controlled errors into correct answers. Your task is to take a provided correct answer and inject specific types of errors while maintaining overall coherence and plausibility.\n\nCore Principles:\n\t•\tPreservation: Keep the overall structure, tone, and style of the original answer\n\t•\tTargeted Modification: Only inject errors of the specified types\n\t•\tIntensity Control: Adjust error severity based on the intensity parameter (0.1 = barely noticeable, 1.0 = obviously wrong)\n\t•\tPlausibility: Ensure injected errors are believable and contextually appropriate\n\t•\tDocumentation: Precisely track each modification made\n\nError Injection Guidelines:\n\t•\tFactual: Change specific facts, entities, names, or claims while keeping them realistic\n\t•\tTemporal: Modify dates, time periods, or temporal relationships (e.g., '2020' → '2018')\n\t•\tNumerical: Alter numbers, quantities, percentages, measurements (e.g., '50%' → '65%')\n\t•\tRelational: Change relationships between entities (e.g., 'caused by' → 'associated with')\n\t•\tContextual: Add unrelated but plausible contextual information\n\t•\tOmission: Remove important details, qualifications, or caveats\n\nIntensity Scaling:\n\t•\t0.1-0.2: Minimal changes that experts might debate\n\t•\t0.3-0.5: Noticeable but plausible errors\n\t•\t0.6-0.8: Clear errors that contradict the original\n\t•\t0.9-1.0: Obvious errors that completely change meaning",
+            "input_params": []
+        },
+        "batch_triplet_generation_instruction": {
+            "format": "You are a BatchTripletExtractor, specialized in efficiently processing multiple input texts simultaneously to extract structured knowledge triplets.\n\nBatch Processing Guidelines:\n\t•\tProcess Independence: Treat each input text as a separate, independent task\n\t•\tConsistent Quality: Apply the same high standards to all inputs regardless of batch size\n\t•\tAccurate Indexing: Ensure each result is correctly mapped to its input_index\n\t•\tCompleteness: Process all provided inputs without skipping any\n\t•\tStructural Consistency: Maintain uniform triplet format across all results\n\nTriplet Extraction Standards:\n\t•\tContextualization: Each triplet must be self-contained and understandable without the original text\n\t•\tGranularity: Extract all significant relationships, not just the most obvious ones\n\t•\tAccuracy: Ensure triplets accurately represent the information in their respective input texts\n\t•\tFormat: Strictly follow [\"subject\", \"predicate\", \"object\"] format with clear, specific terms\n\nBatch Output Requirements:\n\t•\tComplete Coverage: Every input must have a corresponding result with correct input_index\n\t•\tOrdered Processing: Results can be in any order but must include correct input_index\n\t•\tError Handling: If an input is unclear, provide basic triplets rather than skipping",
+            "input_params": []
         }
     },
     "human": {
@@ -94,6 +102,37 @@
                 "reference_documents",
                 "question",
                 "examples"
+            ]
+        },
+        "answer_based_hallucination_generation": {
+            "format": "Task: Take the provided correct answer and inject specific types of errors to create a hallucinated version.\n\nQuestion: {question}\n\nCorrect Answer: {correct_answer}\n\nError Types to Inject:\n{error_types}\n\nIntensity Level: {intensity} (scale: {intensity_value})\n\nInstructions:\n1. Keep the overall structure and style of the original answer\n2. Inject errors of the specified types with the given intensity level\n3. Ensure the hallucinated answer remains plausible and coherent\n4. Document each specific change made with precise details\n5. The original_answer field should contain the exact input provided",
+            "input_params": [
+                "correct_answer",
+                "question",
+                "error_types",
+                "intensity",
+                "intensity_value"
+            ]
+        },
+        "batch_triplet_generation": {
+            "format": "Task: Extract triplets from multiple input texts in a single batch.\n\nBatch Input Texts:\n{batch_input_text}\n\nTotal Inputs: {num_inputs}\n\nInstructions:\n1. Process each input text separately and extract triplets in the form [\"subject\", \"predicate\", \"object\"]\n2. Ensure triplets are fully contextualized and self-contained\n3. Return results with the correct input_index for each set of triplets\n4. Maintain the order and ensure all {num_inputs} inputs are processed",
+            "input_params": [
+                "batch_input_text",
+                "num_inputs"
+            ]
+        },
+        "batch_fact_check": {
+            "format": "Task: Perform fact checking on multiple sets of triplets in a single batch.\n\nBatch Fact Check Tasks:\n{batch_input_text}\n\nTotal Tasks: {num_tasks}\n\nInstructions:\n1. For each task, compare the answer triplets against the reference triplets\n2. Determine if each answer triplet is supported by the reference triplets\n3. Return results with the correct task_index and triplet_idx for each comparison\n4. Ensure all {num_tasks} tasks are processed completely",
+            "input_params": [
+                "batch_input_text",
+                "num_tasks"
+            ]
+        },
+        "batch_fact_check_inquiry": {
+            "format": "Task: Perform detailed fact checking with explanations on multiple sets of triplets in a single batch.\n\nBatch Fact Check Tasks:\n{batch_input_text}\n\nTotal Tasks: {num_tasks}\n\nInstructions:\n1. For each task, compare the answer triplets against the reference triplets\n2. Provide detailed reasoning for each comparison\n3. Format each task's results with [REFERRED TRIPLETS] and [FINAL ANSWER] sections\n4. Ensure all {num_tasks} tasks are processed with complete explanations",
+            "input_params": [
+                "batch_input_text",
+                "num_tasks"
             ]
         }
     }
