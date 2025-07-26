@@ -1,38 +1,38 @@
 {
-    "experiment_setup": {
-        "system_retry": 2,
-        "log_prompts": false
+  "experiment_setup": {
+    "system_retry": 2,
+    "log_prompts": false
+  },
+  "model": {
+    "triplet_generator": {
+      "model_name": "llm_n_shot",
+      "model_params": {
+        "openie.affinity_probability_cap": 0.6
+      },
+      "num_shot": 3
     },
-    "model": {
-        "triplet_generator": {
-            "model_name": "llm_n_shot",
-            "model_params": {
-                "openie.affinity_probability_cap": 0.6
-            },
-            "num_shot": 3
-        },
-        "fact_checker": {
-            "model_name": "llm",
-            "split_reference_triplets": true,
-            "max_reference_triplet_length": 100,
-            "num_shot": 2,
-            "inquiry_mode": true
-        },
-        "llm": {
-            "generator_model": "gpt-4o",
-            "request_max_try": 1,
-            "temperature": 0
-        },
-        "hallucination_data_generator": {
-            "model_name": "llm_n_shot",
-            "num_shot": 2
-        }
+    "fact_checker": {
+      "model_name": "llm",
+      "split_reference_triplets": true,
+      "max_reference_triplet_length": 100,
+      "num_shot": 2,
+      "inquiry_mode": true
     },
-    "path": {
-        "data": {
-            "base": "rag_fact_checker/data/",
-            "demo": "demonstrations"
-        },
-        "prompts": "rag_fact_checker/prompt_bank.json"
+    "llm": {
+      "generator_model": "gpt-4.1-mini",
+      "request_max_try": 1,
+      "temperature": 0
+    },
+    "hallucination_data_generator": {
+      "model_name": "llm_n_shot",
+      "num_shot": 2
     }
+  },
+  "path": {
+    "data": {
+      "base": "rag_fact_checker/data/",
+      "demo": "demonstrations"
+    },
+    "prompts": "rag_fact_checker/prompt_bank.json"
+  }
 }

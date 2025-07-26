@@ -1,7 +1,5 @@
 import logging
 from typing import List, Dict
-
-from langchain_core.messages import BaseMessage
 from rag_fact_checker.data import FactCheckerOutput, Config
 from rag_fact_checker.model.fact_checker import FactChecker
 from rag_fact_checker.pipeline import PipelineLLM, PipelineDemonstration
@@ -22,7 +20,7 @@ class LLMMultiShotSplitFactChecker(FactChecker, PipelineLLM, PipelineDemonstrati
         forward(answer_triplets: List[List[str]], reference_triplets: List[List[List[str]]]): -> FactCheckerOutput
             Compares answer triplets with reference triplets and returns the comparison results.
 
-        get_model_prompt(answer_triplets: List[List[str]], reference_triplets: List[List[str]], **kwargs) -> List[BaseMessage]:
+        get_model_prompt(answer_triplets: List[List[str]], reference_triplets: List[List[str]], **kwargs) -> List[Dict[str, str]]:
             Generates a model prompt for comparing answer triplets with reference triplets.
 
         splitted_multishot_triplet_comparison_input_formatter(answer_triplets: List[List[str]], reference_triplets: List[List[str]]) -> Dict[str, str]:
@@ -61,7 +59,12 @@ class LLMMultiShotSplitFactChecker(FactChecker, PipelineLLM, PipelineDemonstrati
                 answer_triplets=answer_triplets,
                 reference_triplets=self.flatten_triplets(reference_triplets),
             )
-            match_result = self.model.invoke(splitted_triplet_comparison_prompt).content
+            response = self.model.chat.completions.create(
+                model=self.config.model.llm.generator_model,
+                messages=splitted_triplet_comparison_prompt,
+                temperature=self.config.model.llm.temperature,
+            )
+            match_result = response.choices[0].message.content
             parsed_output = self.parse_splitted_triplet_comparison_output(
                 string_output=match_result, answer_triplets=answer_triplets
             )
@@ -78,7 +81,7 @@ class LLMMultiShotSplitFactChecker(FactChecker, PipelineLLM, PipelineDemonstrati
         answer_triplets: List[List[str]],
         reference_triplets: List[List[str]],
         **kwargs,
-    ) -> List[BaseMessage]:
+    ) -> List[Dict[str, str]]:
         """
         Generates a model prompt based on the provided answer and reference triplets.
 
@@ -90,11 +93,13 @@ class LLMMultiShotSplitFactChecker(FactChecker, PipelineLLM, PipelineDemonstrati
             message_list: The formatted model prompt.
         """
 
-        return self.message_list_template["n_shot_triplet_match_test"].invoke(
-            input=self.splitted_multishot_triplet_comparison_input_formatter(
+        template_names = self.message_list_template["n_shot_triplet_match_test"]
+        return self.create_messages(
+            template_names,
+            **self.splitted_multishot_triplet_comparison_input_formatter(
                 answer_triplets,
                 reference_triplets,
-            )
+            ),
         )
 
     def splitted_multishot_triplet_comparison_input_formatter(

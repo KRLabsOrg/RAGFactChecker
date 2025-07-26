@@ -2,9 +2,6 @@ from abc import abstractmethod
 from typing import Dict, List
 
 from easydict import EasyDict as edict
-from langchain.prompts import HumanMessagePromptTemplate, SystemMessagePromptTemplate
-from langchain_core.messages import BaseMessage, merge_message_runs
-from langchain_core.prompts import ChatPromptTemplate
 
 from rag_fact_checker.data import Config
 from rag_fact_checker.pipeline.pipeline_base import PipelineBase
@@ -30,12 +27,11 @@ class PipelinePrompt(PipelineBase):
         super().__init__(config)
         self.prompts = edict(PROMPT_BANK)
         self.prompt_templates = self.get_prompt_templates()
-        self.merger = merge_message_runs()
         self.message_list_template = self.get_message_list_templates()
 
     def define_prompt_template(
         self, template_dict: dict, message_type: str
-    ) -> HumanMessagePromptTemplate | SystemMessagePromptTemplate:
+    ) -> Dict[str, str]:
         """
         Defines a prompt template based on the message type.
 
@@ -44,26 +40,26 @@ class PipelinePrompt(PipelineBase):
             message_type (str): Type of the message, e.g., 'human' or 'system'.
 
         Returns:
-            Any: An instance of the appropriate message prompt template.
+            Dict[str, str]: A dictionary with 'role' and 'format' keys.
 
         Raises:
             NotImplementedError: If the message type is not supported.
         """
         if message_type == "human":
-            return HumanMessagePromptTemplate.from_template(template_dict["format"])
+            return {"role": "user", "format": template_dict["format"]}
         elif message_type == "system":
-            return SystemMessagePromptTemplate.from_template(template_dict["format"])
+            return {"role": "system", "format": template_dict["format"]}
         else:
             raise NotImplementedError
 
     def get_prompt_templates(
         self,
-    ) -> Dict[str, HumanMessagePromptTemplate | SystemMessagePromptTemplate]:
+    ) -> Dict[str, Dict[str, str]]:
         """
         Retrieves and constructs all prompt templates from the configuration.
 
         Returns:
-            Dict[str, Any]: A dictionary where keys are template names and values are prompt templates.
+            Dict[str, Dict[str, str]]: A dictionary where keys are template names and values are prompt templates.
         """
         prompt_templates = {}
         for message_type, template_dicts in self.prompts.items():
@@ -73,31 +69,57 @@ class PipelinePrompt(PipelineBase):
                 )
         return prompt_templates
 
-    def get_message_list_templates(self) -> dict[List[BaseMessage]]:
+    def get_message_list_templates(self) -> Dict[str, List[str]]:
         """
-        Generates a dictionary of message list templates for different purposes. message list templates are the list of system/human/ai messages
-
-        all message lists should be defined here
+        Generates a dictionary of message list templates for different purposes.
 
         Returns:
             dict: A dictionary containing message list templates
         """
         message_list_template = {}
         for template_name, _ in self.prompts["human"].items():
-
-            message_list_template[template_name] = (
-                ChatPromptTemplate.from_messages(
-                    [
-                        self.prompt_templates[f"{template_name}_instruction"],
-                        self.prompt_templates[template_name],
-                    ]
-                )
-                | self.merger
-            )
+            message_list_template[template_name] = [
+                f"{template_name}_instruction",
+                template_name,
+            ]
         return message_list_template
 
+    def format_message(self, template_name: str, **kwargs) -> str:
+        """
+        Formats a message template with the provided kwargs.
+
+        Args:
+            template_name (str): Name of the template to format
+            **kwargs: Arguments to format the template with
+
+        Returns:
+            str: Formatted message
+        """
+        template = self.prompt_templates[template_name]
+        return template["format"].format(**kwargs)
+
+    def create_messages(
+        self, template_names: List[str], **kwargs
+    ) -> List[Dict[str, str]]:
+        """
+        Creates a list of messages for OpenAI API from template names.
+
+        Args:
+            template_names (List[str]): List of template names to use
+            **kwargs: Arguments to format templates with
+
+        Returns:
+            List[Dict[str, str]]: List of messages with 'role' and 'content' keys
+        """
+        messages = []
+        for template_name in template_names:
+            template = self.prompt_templates[template_name]
+            content = template["format"].format(**kwargs)
+            messages.append({"role": template["role"], "content": content})
+        return messages
+
     @abstractmethod
-    def get_model_prompt(self, **kwargs) -> List[BaseMessage]:
+    def get_model_prompt(self, **kwargs) -> List[Dict[str, str]]:
         """
         Abstract method to be implemented in subclasses, defining how the model prompt is constructed.
 
@@ -105,6 +127,6 @@ class PipelinePrompt(PipelineBase):
             **kwargs: Arbitrary keyword arguments.
 
         Returns:
-            str: The model prompt.
+            List[Dict[str, str]]: List of messages for OpenAI API
         """
         raise NotImplementedError

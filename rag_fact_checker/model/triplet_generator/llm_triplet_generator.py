@@ -1,8 +1,6 @@
 import logging
 from typing import Dict, List
 
-from langchain_core.messages import BaseMessage
-
 from rag_fact_checker.data import Config, TripletGeneratorOutput
 from rag_fact_checker.model.triplet_generator import (
     TripletGenerator,
@@ -25,7 +23,7 @@ class LLMTripletGenerator(TripletGenerator, PipelineLLM, PipelinePrompt):
     default_triplet(self) -> List[str]
         Returns the default triplet.
 
-    get_model_prompt(self, text_input:str, **kwargs) -> List[BaseMessage]
+    get_model_prompt(self, text_input:str, **kwargs) -> List[Dict[str, str]]
         Creates a prompt for triplet generation using the provided text input or generated answer.
 
     triplet_generation_input_formatter(self, text_input:str) -> Dict[str, str]
@@ -51,7 +49,40 @@ class LLMTripletGenerator(TripletGenerator, PipelineLLM, PipelinePrompt):
             TripletGeneratorOutput: TripletGeneratorOutput which has a list of triplets generated from the input data.
         """
         triplet_generation_prompt = self.get_model_prompt(input_text)
-        triplet_generation_output = self.model.invoke(triplet_generation_prompt).content
+
+        # Define JSON schema for structured triplet output
+        triplet_schema = {
+            "type": "json_schema",
+            "json_schema": {
+                "name": "triplet_generation_response",
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "triplets": {
+                            "type": "array",
+                            "items": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "minItems": 3,
+                                "maxItems": 3,
+                            },
+                            "description": "Array of triplets, each containing [subject, predicate, object]",
+                        }
+                    },
+                    "required": ["triplets"],
+                    "additionalProperties": False,
+                },
+                "strict": True,
+            },
+        }
+
+        response = self.model.chat.completions.create(
+            model=self.config.model.llm.generator_model,
+            messages=triplet_generation_prompt,
+            temperature=self.config.model.llm.temperature,
+            response_format=triplet_schema,
+        )
+        triplet_generation_output = response.choices[0].message.content
 
         if self.config.experiment_setup.log_prompts:
             self.logger.debug(triplet_generation_prompt)
@@ -69,7 +100,7 @@ class LLMTripletGenerator(TripletGenerator, PipelineLLM, PipelinePrompt):
         """
         return ["", "", ""]
 
-    def get_model_prompt(self, input_text: str, **kwargs) -> List[BaseMessage]:
+    def get_model_prompt(self, input_text: str, **kwargs) -> List[Dict[str, str]]:
         """
         Create a prompt for triplet generation using the provided text input.
         Args:
@@ -77,18 +108,20 @@ class LLMTripletGenerator(TripletGenerator, PipelineLLM, PipelinePrompt):
             **kwargs: Additional keyword arguments. Must include 'generated_answer' if text_input is not provided.
 
         Returns:
-            str: The generated prompt for triplet generation.
+            List[Dict[str, str]]: The generated prompt for triplet generation.
 
         Raises:
             AssertionError: If neither input_text nor 'generated_answer' in kwargs is provided.
         """
         if input_text == None:
-            assert (
-                "generated_answer" in kwargs
-            ), "one of input_text input or generated_answer should be provided"
+            assert "generated_answer" in kwargs, (
+                "one of input_text input or generated_answer should be provided"
+            )
             input_text = kwargs["generated_answer"]
-        return self.message_list_template["triplet_generation"].invoke(
-            input=self.triplet_generation_input_formatter(input_text)
+
+        template_names = self.message_list_template["triplet_generation"]
+        return self.create_messages(
+            template_names, **self.triplet_generation_input_formatter(input_text)
         )
 
     def triplet_generation_input_formatter(self, input_text: str) -> Dict[str, str]:
@@ -107,52 +140,39 @@ class LLMTripletGenerator(TripletGenerator, PipelineLLM, PipelinePrompt):
         self, triplet_generation_model_output: str
     ) -> List[List[str]]:
         """
-        Parse output text to triplets.
+        Parse JSON output to triplets.
         Args:
-            triplet_generation_model_output (str): The output text containing triplets separated by newlines.
+            triplet_generation_model_output (str): The JSON output containing triplets.
 
         Returns:
-            list: A list of triplets parsed from the output text. If parsing fails or any triplet does not contain exactly three elements, returns the default triplet.
-
+            list: A list of triplets parsed from the JSON output. If parsing fails, returns default triplet.
         """
+        import json
+
         try:
-            result = eval(self.preprocess_output(triplet_generation_model_output))
-            for triplet in result:
-                if len(triplet) != 3:
-                    self.logger.warning(
-                        "Some triplet failed in generation : %s", str(triplet)
-                    )
-            result = [
-                triplet if len(triplet) == 3 else self.default_triplet
-                for triplet in result
-            ]
-        except Exception as e:  # todo: how to handle this exception?
-            self.logger.warning("Error parsing triplet generation output. : %s", str(e))
-            try:
-                result = eval(self.preprocess_output(triplet_generation_model_output))
-                result = self.default_triplet * len(result)
-            except Exception as e:
+            # Parse JSON output
+            data = json.loads(triplet_generation_model_output.strip())
+            triplets = data.get("triplets", [])
 
-                result = self.default_triplet * 1
-            self.logger.debug("Error occured in : %s", triplet_generation_model_output)
-            self.logger.debug("So we used : %s", str(result))
-        return result
+            # Validate triplets and fix any invalid ones
+            result = []
+            for triplet in triplets:
+                if isinstance(triplet, list) and len(triplet) == 3:
+                    result.append(
+                        [str(item) for item in triplet]
+                    )  # Ensure all elements are strings
+                else:
+                    self.logger.warning("Invalid triplet structure: %s", str(triplet))
+                    result.append(self.default_triplet)
 
-    def preprocess_output(self, output: str) -> str:
-        """
-        Preprocesses the given output string by performing a series of string replacements.
+            # Return at least one triplet
+            return result if result else [self.default_triplet]
 
-        Args:
-            output (str): The output string to preprocess.
-
-        Returns:
-            str: The preprocessed output string with specific characters and patterns replaced.
-        """
-        example = (
-            output.strip()
-            .replace("{", "")
-            .replace("}", "")
-            .replace("]]]", "]]")
-            .replace("]].", "]]")
-        )
-        return example
+        except (json.JSONDecodeError, KeyError) as e:
+            self.logger.warning("Error parsing JSON triplet output: %s", str(e))
+            self.logger.debug("Raw triplet output: %s", triplet_generation_model_output)
+            return [self.default_triplet]
+        except Exception as e:
+            self.logger.warning("Unexpected error parsing triplet output: %s", str(e))
+            self.logger.debug("Raw triplet output: %s", triplet_generation_model_output)
+            return [self.default_triplet]

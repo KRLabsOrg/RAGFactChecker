@@ -62,9 +62,7 @@ class FactChecker(PipelineBase):
         # merge the dictionaries
         for d in output_list:
             for key, value in d.fact_check_prediction_binary.items():
-                if (
-                    value
-                ):  # if any of the dictionaries has the key as True, set the result to True
+                if value:  # if any of the dictionaries has the key as True, set the result to True
                     merged_fact_check_result[key] = True
 
         return FactCheckerOutput(fact_check_prediction_binary=merged_fact_check_result)

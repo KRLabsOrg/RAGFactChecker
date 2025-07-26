@@ -1,7 +1,6 @@
 import logging
 from typing import List, Dict
 
-from langchain_core.messages import BaseMessage
 
 from rag_fact_checker.data import FactCheckerOutput, Config
 from rag_fact_checker.model.fact_checker import FactChecker
@@ -29,10 +28,10 @@ class LLMFactChecker(FactChecker, PipelineLLM, PipelinePrompt):
         forward(answer_triplets: List[List[str]], reference_triplets: List[List[List[str]]]): -> FactCheckerOutput
             Compares answer triplets with reference triplets and returns the comparison results.
 
-        get_model_prompt(answer_triplets: List[List[str]], reference_triplets: List[List[str]], **kwargs) -> List[BaseMessage]:
+        get_model_prompt(answer_triplets: List[List[str]], reference_triplets: List[List[str]], **kwargs) -> List[Dict[str, str]]:
             Generates a model prompt for comparing answer triplets with reference triplets.
 
-        get_inquiry_model_prompt(answer_triplets: List[List[str]], reference_triplets: List[List[str]], **kwargs) -> List[BaseMessage]:
+        get_inquiry_model_prompt(answer_triplets: List[List[str]], reference_triplets: List[List[str]], **kwargs) -> List[Dict[str, str]]:
             Generates a model prompt for comparing answer triplets with reference triplets with inquiry mode.
 
         triplet_comparison_input_formatter(answer_triplets: List[List[str]], reference_triplets: List[List[str]]) -> Dict[str, str]:
@@ -100,7 +99,6 @@ class LLMFactChecker(FactChecker, PipelineLLM, PipelinePrompt):
         answer_triplets: List[List[str]],
         reference_triplets: List[List[str]],
     ) -> FactCheckerOutput:
-
         # Build the prompt for the model by formatting the input triplets
         if self.config.model.fact_checker.inquiry_mode:
             triplet_comparison_prompt = self.get_inquiry_model_prompt(
@@ -112,9 +110,53 @@ class LLMFactChecker(FactChecker, PipelineLLM, PipelinePrompt):
                 answer_triplets,
                 reference_triplets,
             )
-        # Invoke the LLM with the constructed prompt to get the raw matching result as text
-        match_result = self.model.invoke(triplet_comparison_prompt).content
-        # Parse the raw string output into a structured dictionary of triplet_idx: boolean_result
+        # Use structured outputs only for non-inquiry mode
+        if self.config.model.fact_checker.inquiry_mode:
+            # Inquiry mode requires text-based output for explanations
+            response = self.model.chat.completions.create(
+                model=self.config.model.llm.generator_model,
+                messages=triplet_comparison_prompt,
+                temperature=self.config.model.llm.temperature,
+            )
+        else:
+            # Define JSON schema for structured fact checking output
+            fact_check_schema = {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "fact_check_response",
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "results": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "triplet_idx": {"type": "integer"},
+                                        "result": {"type": "boolean"},
+                                    },
+                                    "required": ["triplet_idx", "result"],
+                                    "additionalProperties": False,
+                                },
+                                "description": "Array of fact check results for each triplet",
+                            }
+                        },
+                        "required": ["results"],
+                        "additionalProperties": False,
+                    },
+                    "strict": True,
+                },
+            }
+
+            response = self.model.chat.completions.create(
+                model=self.config.model.llm.generator_model,
+                messages=triplet_comparison_prompt,
+                temperature=self.config.model.llm.temperature,
+                response_format=fact_check_schema,
+            )
+
+        match_result = response.choices[0].message.content
+        # Parse the structured output based on inquiry mode
         if self.config.experiment_setup.log_prompts:
             self.logger.debug(triplet_comparison_prompt)
 
@@ -136,7 +178,7 @@ class LLMFactChecker(FactChecker, PipelineLLM, PipelinePrompt):
         answer_triplets: List[List[str]],
         reference_triplets: List[List[str]],
         **kwargs,
-    ) -> List[BaseMessage]:
+    ) -> List[Dict[str, str]]:
         """
         Generate the model prompt by using a template and providing formatted input.
 
@@ -145,14 +187,16 @@ class LLMFactChecker(FactChecker, PipelineLLM, PipelinePrompt):
             reference_triplets (list): The reference triplets for comparison.
 
         Returns:
-            MessageList: A formatted prompt ready to be passed to the LLM.
+            List[Dict[str, str]]: A formatted prompt ready to be passed to the LLM.
         """
         # Use the template message with the formatted input (answer and reference triplets)
-        return self.message_list_template["triplet_match_test"].invoke(
-            input=self.triplet_comparison_input_formatter(
+        template_names = self.message_list_template["triplet_match_test"]
+        return self.create_messages(
+            template_names,
+            **self.triplet_comparison_input_formatter(
                 answer_triplets,
                 reference_triplets,
-            )
+            ),
         )
 
     def get_inquiry_model_prompt(
@@ -160,14 +204,15 @@ class LLMFactChecker(FactChecker, PipelineLLM, PipelinePrompt):
         answer_triplets: List[List[str]],
         reference_triplets: List[List[str]],
         **kwargs,
-    ) -> List[BaseMessage]:
-
+    ) -> List[Dict[str, str]]:
         # Use the template message with the formatted input (answer and reference triplets)
-        return self.message_list_template["triplet_match_test_inquiry"].invoke(
-            input=self.triplet_comparison_input_formatter(
+        template_names = self.message_list_template["triplet_match_test_inquiry"]
+        return self.create_messages(
+            template_names,
+            **self.triplet_comparison_input_formatter(
                 answer_triplets,
                 reference_triplets,
-            )
+            ),
         )
 
     def triplet_comparison_input_formatter(
@@ -200,38 +245,45 @@ class LLMFactChecker(FactChecker, PipelineLLM, PipelinePrompt):
 
     def parse_triplet_comparison_output(self, string_output: str) -> Dict[int, bool]:
         """
-        Parse the raw string output from the LLM into a structured dictionary of triplet results.
-
-        The output should match the format: triplet_idx:result (e.g., "0:True, 1:False").
+        Parse JSON output from the fact checking model.
 
         Args:
-            string_output (str): The raw output string from the LLM.
+            string_output (str): The JSON output string from the LLM.
 
         Returns:
             dict: A dictionary where keys are triplet indices (int) and
                   values are booleans indicating True/False for each triplet.
         """
-        # Split the output by commas to separate each triplet's result
-        splitted_string_outputs = string_output.replace("\n", ",").split(",")
+        import json
 
-        match_output = {}
-        # Try to evaluate each part as a dictionary entry like "{0:True}"
-        for splitted_string_output in splitted_string_outputs:
-            try:
-                # Remove potential hyphens and wrap in braces to form a valid Python dictionary entry
-                match_output.update(
-                    eval("{" + splitted_string_output.replace("-", "") + "}")
-                )
-            except Exception as e:
-                # If parsing fails, skip that entry
-                self.logger.warning(
-                    "Failed to parse the fact checker output : %s / %s",
-                    str(e),
-                    splitted_string_output,
-                )
-                self.logger.debug("Error occured in : %s", string_output)
-                pass
-        return match_output
+        try:
+            # Parse JSON output
+            data = json.loads(string_output.strip())
+            results = data.get("results", [])
+
+            match_output = {}
+            for result in results:
+                if (
+                    isinstance(result, dict)
+                    and "triplet_idx" in result
+                    and "result" in result
+                ):
+                    match_output[result["triplet_idx"]] = result["result"]
+                else:
+                    self.logger.warning("Invalid result structure: %s", str(result))
+
+            return match_output
+
+        except (json.JSONDecodeError, KeyError) as e:
+            self.logger.warning("Error parsing JSON fact check output: %s", str(e))
+            self.logger.debug("Raw fact check output: %s", string_output)
+            return {}
+        except Exception as e:
+            self.logger.warning(
+                "Unexpected error parsing fact check output: %s", str(e)
+            )
+            self.logger.debug("Raw fact check output: %s", string_output)
+            return {}
 
     def parse_triplet_comparison_inquiry_output(
         self, string_output: str

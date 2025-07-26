@@ -3,7 +3,6 @@ from rag_fact_checker.pipeline.pipeline_prompt import PipelinePrompt
 
 
 class PipelineDemonstration(PipelinePrompt):
-
     def __init__(self, config: Config):
         super().__init__(config)
 

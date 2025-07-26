@@ -28,13 +28,12 @@ class LLMTripletValidator(PipelineBase):
     """
 
     def __init__(self, input_config: dict = None, openai_api_key: str = None):
-
         if openai_api_key is None:
             openai_api_key = os.getenv("OPENAI_API_KEY")
 
-        assert (
-            openai_api_key is not None
-        ), "OpenAI API key is required. Please pass it as input or set it in the environment."
+        assert openai_api_key is not None, (
+            "OpenAI API key is required. Please pass it as input or set it in the environment."
+        )
 
         config = self.load_config(openai_api_key=openai_api_key, config=input_config)
 
