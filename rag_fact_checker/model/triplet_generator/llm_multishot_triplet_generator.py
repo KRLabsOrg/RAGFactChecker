@@ -1,7 +1,7 @@
 import logging
 
 from rag_fact_checker.data import Config, TripletGeneratorOutput
-from rag_fact_checker.model.triplet_generator import (
+from rag_fact_checker.model.triplet_generator.triplet_generator import (
     TripletGenerator,
 )
 from rag_fact_checker.pipeline import PipelineDemonstration, PipelineLLM

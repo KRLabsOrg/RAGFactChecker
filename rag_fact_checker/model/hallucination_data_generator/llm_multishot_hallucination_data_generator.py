@@ -1,7 +1,7 @@
 import logging
 
 from rag_fact_checker.data import Config, HallucinationDataGeneratorOutput
-from rag_fact_checker.model.hallucination_data_generator import (
+from rag_fact_checker.model.hallucination_data_generator.hallucination_data_generator import (
     HallucinationDataGenerator,
 )
 from rag_fact_checker.pipeline import PipelineDemonstration

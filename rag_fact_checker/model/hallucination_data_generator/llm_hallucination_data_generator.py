@@ -1,7 +1,7 @@
 import logging
 
 from rag_fact_checker.data import Config, HallucinationDataGeneratorOutput
-from rag_fact_checker.model.hallucination_data_generator import (
+from rag_fact_checker.model.hallucination_data_generator.hallucination_data_generator import (
     HallucinationDataGenerator,
 )
 from rag_fact_checker.pipeline.simple_batch_processor import (
@@ -163,7 +163,7 @@ class LLMHallucinationDataGenerator(
 
     def parse_hlcntn_data_generation_output(
         self, hlcntn_data_generation_output: str
-    ) -> tuple[str, str, str]:
+    ) -> tuple[str, str, list[str]]:
         """
         Parses the hallucination data generation JSON output and extracts the components.
 
@@ -174,7 +174,7 @@ class LLMHallucinationDataGenerator(
             tuple: A tuple containing:
                 - non_hlcntn_answer (str): The non-hallucinated answer extracted from the output.
                 - hlcntn_answer (str): The hallucinated answer extracted from the output.
-                - hlcntn_part (str): The hallucinated details extracted from the output.
+                - hlcntn_part (list[str]): The hallucinated details extracted from the output as a list of strings.
         """
         import json
 
@@ -185,9 +185,8 @@ class LLMHallucinationDataGenerator(
             non_hlcntn_answer = data.get("non_hallucinated_answer", "").strip()
             hlcntn_answer = data.get("hallucinated_answer", "").strip()
 
-            # Convert hallucinated details list to a clean string
-            hlcntn_details_list = data.get("hallucinated_details", [])
-            hlcntn_part = " ".join(hlcntn_details_list) if hlcntn_details_list else ""
+            # Extract hallucinated details as list of strings
+            hlcntn_part = data.get("hallucinated_details", [])
 
         except (json.JSONDecodeError, KeyError) as e:
             self.logger.warning(f"Error parsing JSON hallucination output: {str(e)}")
@@ -195,7 +194,7 @@ class LLMHallucinationDataGenerator(
                 f"Raw hallucination output: {hlcntn_data_generation_output}"
             )
             # Fallback to empty values
-            non_hlcntn_answer, hlcntn_answer, hlcntn_part = "", "", ""
+            non_hlcntn_answer, hlcntn_answer, hlcntn_part = "", "", []
         except Exception as e:
             self.logger.warning(
                 f"Unexpected error parsing hallucination output: {str(e)}"
@@ -203,7 +202,7 @@ class LLMHallucinationDataGenerator(
             self.logger.debug(
                 f"Raw hallucination output: {hlcntn_data_generation_output}"
             )
-            non_hlcntn_answer, hlcntn_answer, hlcntn_part = "", "", ""
+            non_hlcntn_answer, hlcntn_answer, hlcntn_part = "", "", []
 
         return non_hlcntn_answer, hlcntn_answer, hlcntn_part
 

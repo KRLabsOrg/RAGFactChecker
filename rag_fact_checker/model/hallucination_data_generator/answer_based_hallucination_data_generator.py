@@ -2,7 +2,7 @@ import logging
 from enum import Enum
 
 from rag_fact_checker.data import Config, HallucinationDataGeneratorOutput
-from rag_fact_checker.model.hallucination_data_generator import (
+from rag_fact_checker.model.hallucination_data_generator.hallucination_data_generator import (
     HallucinationDataGenerator,
 )
 
@@ -235,7 +235,7 @@ class AnswerBasedHallucinationDataGenerator(HallucinationDataGenerator):
 
     def parse_answer_based_hallucination_output(
         self, hallucination_output: str
-    ) -> tuple[str, str, str]:
+    ) -> tuple[str, str, list[str]]:
         """
         Parse JSON output from answer-based hallucination generation.
 
@@ -243,7 +243,7 @@ class AnswerBasedHallucinationDataGenerator(HallucinationDataGenerator):
             hallucination_output (str): JSON output from the model
 
         Returns:
-            tuple: (original_answer, hallucinated_answer, error_details_string)
+            tuple: (original_answer, hallucinated_answer, hallucinated_parts_list)
         """
         import json
 
@@ -253,19 +253,16 @@ class AnswerBasedHallucinationDataGenerator(HallucinationDataGenerator):
             original_answer = data.get("original_answer", "").strip()
             hallucinated_answer = data.get("hallucinated_answer", "").strip()
 
-            # Format injected errors into readable string
+            # Extract only the modified text (hallucinated parts) as list of strings
             injected_errors = data.get("injected_errors", [])
-            error_details = []
+            hallucinated_parts = []
 
             for error in injected_errors:
-                error_detail = (
-                    f"{error.get('error_type', 'unknown').title()}: "
-                    f"'{error.get('original_text', '')}' → '{error.get('modified_text', '')}' "
-                    f"({error.get('description', 'No description')})"
-                )
-                error_details.append(error_detail)
+                modified_text = error.get('modified_text', '').strip()
+                if modified_text:
+                    hallucinated_parts.append(modified_text)
 
-            error_details_string = " | ".join(error_details) if error_details else ""
+            error_details_string = hallucinated_parts
 
             return original_answer, hallucinated_answer, error_details_string
 
@@ -274,10 +271,10 @@ class AnswerBasedHallucinationDataGenerator(HallucinationDataGenerator):
                 f"Error parsing answer-based hallucination output: {str(e)}"
             )
             self.logger.debug(f"Raw output: {hallucination_output}")
-            return "", "", ""
+            return "", "", []
         except Exception as e:
             self.logger.warning(
                 f"Unexpected error parsing answer-based hallucination: {str(e)}"
             )
             self.logger.debug(f"Raw output: {hallucination_output}")
-            return "", "", ""
+            return "", "", []

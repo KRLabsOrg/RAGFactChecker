@@ -7,9 +7,13 @@ from rag_fact_checker.model.hallucination_data_generator.llm_hallucination_data_
 from rag_fact_checker.model.hallucination_data_generator.llm_multishot_hallucination_data_generator import (
     LLMMultiShotHallucinationDataGenerator,
 )
+from rag_fact_checker.model.hallucination_data_generator.answer_based_hallucination_data_generator import (
+    AnswerBasedHallucinationDataGenerator,
+)
 
 __all__ = [
     "HallucinationDataGenerator",
     "LLMHallucinationDataGenerator",
     "LLMMultiShotHallucinationDataGenerator",
+    "AnswerBasedHallucinationDataGenerator",
 ]
