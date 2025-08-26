@@ -34,5 +34,11 @@
       "demo": "demonstrations"
     },
     "prompts": "rag_fact_checker/prompt_bank.json"
+  },
+  "simple_batch_config": {
+    "max_workers": 5,
+    "max_retries": 3,
+    "retry_delay": 1.0,
+    "timeout": null
   }
 }

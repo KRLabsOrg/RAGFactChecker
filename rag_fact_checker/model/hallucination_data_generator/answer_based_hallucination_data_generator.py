@@ -5,6 +5,10 @@ from rag_fact_checker.data import Config, HallucinationDataGeneratorOutput
 from rag_fact_checker.model.hallucination_data_generator.hallucination_data_generator import (
     HallucinationDataGenerator,
 )
+from rag_fact_checker.pipeline.simple_batch_processor import (
+    SimpleBatchProcessingMixin,
+    SimpleBatchResult,
+)
 
 
 class ErrorType(Enum):
@@ -18,7 +22,7 @@ class ErrorType(Enum):
     OMISSION = "omission"  # Remove important details
 
 
-class AnswerBasedHallucinationDataGenerator(HallucinationDataGenerator):
+class AnswerBasedHallucinationDataGenerator(HallucinationDataGenerator, SimpleBatchProcessingMixin):
     """
     Generates hallucinated data by taking a correct answer and injecting specific types of errors.
 
@@ -278,3 +282,117 @@ class AnswerBasedHallucinationDataGenerator(HallucinationDataGenerator):
             )
             self.logger.debug(f"Raw output: {hallucination_output}")
             return "", "", []
+
+    # Batch processing methods
+    def generate_answer_based_hallucination_batch(
+        self,
+        correct_answers: list[str],
+        questions: list[str],
+        error_types_list: list[list[ErrorType]] | None = None,
+        intensities: list[float] | None = None,
+    ) -> SimpleBatchResult[HallucinationDataGeneratorOutput]:
+        """
+        Generate hallucinated data for multiple correct answer and question pairs concurrently.
+
+        Args:
+            correct_answers: List of correct answers to introduce errors into
+            questions: List of questions for context
+            error_types_list: List of error type lists for each answer. If None, defaults to 
+                [FACTUAL, TEMPORAL, NUMERICAL] for all answers
+            intensities: List of intensity values for each answer. If None, defaults to 0.3 for all
+
+        Returns:
+            SimpleBatchResult containing HallucinationDataGeneratorOutput for each successful generation
+        """
+        batch_size = len(correct_answers)
+        
+        if len(questions) != batch_size:
+            raise ValueError("Correct answers and questions batch sizes must match")
+        
+        # Handle defaults for error_types_list
+        if error_types_list is None:
+            default_error_types = [ErrorType.FACTUAL, ErrorType.TEMPORAL, ErrorType.NUMERICAL]
+            error_types_list = [default_error_types] * batch_size
+        elif len(error_types_list) != batch_size:
+            raise ValueError("Error types list and batch size must match")
+        
+        # Handle defaults for intensities
+        if intensities is None:
+            intensities = [0.3] * batch_size
+        elif len(intensities) != batch_size:
+            raise ValueError("Intensities list and batch size must match")
+
+        # Create tuples for processing
+        generation_tasks = list(zip(correct_answers, questions, error_types_list, intensities))
+
+        def process_single_task(task_tuple):
+            correct_answer, question, error_types, intensity = task_tuple
+            return self.generate_answer_based_hallucination(
+                correct_answer=correct_answer,
+                question=question,
+                error_types=error_types,
+                intensity=intensity
+            )
+
+        return self.process_items_concurrently(
+            generation_tasks, process_single_task, "answer_based_hallucination_generation_tasks"
+        )
+
+    async def generate_answer_based_hallucination_batch_async(
+        self,
+        correct_answers: list[str],
+        questions: list[str],
+        error_types_list: list[list[ErrorType]] | None = None,
+        intensities: list[float] | None = None,
+    ) -> SimpleBatchResult[HallucinationDataGeneratorOutput]:
+        """
+        Generate hallucinated data for multiple correct answer and question pairs concurrently with async support.
+
+        Args:
+            correct_answers: List of correct answers to introduce errors into
+            questions: List of questions for context
+            error_types_list: List of error type lists for each answer. If None, defaults to 
+                [FACTUAL, TEMPORAL, NUMERICAL] for all answers
+            intensities: List of intensity values for each answer. If None, defaults to 0.3 for all
+
+        Returns:
+            SimpleBatchResult containing HallucinationDataGeneratorOutput for each successful generation
+        """
+        batch_size = len(correct_answers)
+        
+        if len(questions) != batch_size:
+            raise ValueError("Correct answers and questions batch sizes must match")
+        
+        # Handle defaults for error_types_list
+        if error_types_list is None:
+            default_error_types = [ErrorType.FACTUAL, ErrorType.TEMPORAL, ErrorType.NUMERICAL]
+            error_types_list = [default_error_types] * batch_size
+        elif len(error_types_list) != batch_size:
+            raise ValueError("Error types list and batch size must match")
+        
+        # Handle defaults for intensities
+        if intensities is None:
+            intensities = [0.3] * batch_size
+        elif len(intensities) != batch_size:
+            raise ValueError("Intensities list and batch size must match")
+
+        # Create tuples for processing
+        generation_tasks = list(zip(correct_answers, questions, error_types_list, intensities))
+
+        async def async_process_task(task_tuple):
+            import asyncio
+
+            correct_answer, question, error_types, intensity = task_tuple
+            loop = asyncio.get_event_loop()
+            return await loop.run_in_executor(
+                None,
+                self.generate_answer_based_hallucination,
+                correct_answer,
+                question,
+                error_types,
+                intensity
+            )
+
+        return await self.process_items_concurrently_async(
+            generation_tasks, async_process_task, "answer_based_hallucination_generation_tasks"
+        )
