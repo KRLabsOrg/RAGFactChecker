@@ -46,6 +46,12 @@ dev = [
 # This tells setuptools to automatically find packages
 # Same behavior as find_packages() in setup.py
 
+[tool.setuptools.package-data]
+rag_fact_checker = [
+    "prompt_bank.json",
+    "default_config.json",
+]
+
 [tool.ruff]
 line-length = 88
 target-version = "py311"
