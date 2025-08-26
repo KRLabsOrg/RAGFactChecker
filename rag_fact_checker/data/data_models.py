@@ -40,6 +40,7 @@ class LLMConfig:
     request_max_try: int = 1
     temperature: float = 0.0
     api_key: str | None = field(default_factory=lambda: __import__('os').getenv('OPENAI_API_KEY'))
+    base_url: str | None = field(default_factory=lambda: __import__('os').getenv('OPENAI_BASE_URL'))
 
 
 @dataclass

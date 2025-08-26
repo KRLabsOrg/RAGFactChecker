@@ -13,7 +13,14 @@ class PipelineLLM(PipelineBase):
 
     def __init__(self, config: Config):
         super().__init__(config)
-        self.model = OpenAI(
-            api_key=self.config.model.llm.api_key,
-            max_retries=self.config.model.llm.request_max_try,
-        )
+        if self.config.model.llm.base_url:
+            self.model = OpenAI(
+                api_key=self.config.model.llm.api_key,
+                max_retries=self.config.model.llm.request_max_try,
+                base_url=self.config.model.llm.base_url,
+            )
+        else:
+            self.model = OpenAI(
+                api_key=self.config.model.llm.api_key,
+                max_retries=self.config.model.llm.request_max_try,
+            )
