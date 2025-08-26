@@ -60,7 +60,9 @@ class SimpleBatchProcessor:
         """
         start_time = time.time()
         self.logger.info(f"Starting batch processing: {len(items)} {item_name}")
-        self.logger.info(f"Batch config: max_workers={self.config.max_workers}, max_retries={self.config.max_retries}, retry_delay={self.config.retry_delay}s")
+        self.logger.info(
+            f"Batch config: max_workers={self.config.max_workers}, max_retries={self.config.max_retries}, retry_delay={self.config.retry_delay}s"
+        )
 
         results = [None] * len(items)
         failed_indices = []
@@ -84,11 +86,17 @@ class SimpleBatchProcessor:
                     result = future.result(timeout=self.config.timeout)
                     results[idx] = result
                     completed_count += 1
-                    if completed_count % max(1, len(items) // 10) == 0:  # Log progress every 10%
+                    if (
+                        completed_count % max(1, len(items) // 10) == 0
+                    ):  # Log progress every 10%
                         progress_pct = (completed_count * 100) // len(items)
-                        self.logger.info(f"Progress: {completed_count}/{len(items)} items completed ({progress_pct}%)")
+                        self.logger.info(
+                            f"Progress: {completed_count}/{len(items)} items completed ({progress_pct}%)"
+                        )
                 except Exception as e:
-                    self.logger.error(f"Item {idx+1}/{len(items)} failed completely: {str(e)}")
+                    self.logger.error(
+                        f"Item {idx + 1}/{len(items)} failed completely: {str(e)}"
+                    )
                     failed_indices.append(idx)
                     errors.append(e)
                     completed_count += 1
@@ -133,7 +141,9 @@ class SimpleBatchProcessor:
         """
         start_time = time.time()
         self.logger.info(f"Starting async batch processing: {len(items)} {item_name}")
-        self.logger.info(f"Async batch config: max_workers={self.config.max_workers}, max_retries={self.config.max_retries}, retry_delay={self.config.retry_delay}s")
+        self.logger.info(
+            f"Async batch config: max_workers={self.config.max_workers}, max_retries={self.config.max_retries}, retry_delay={self.config.retry_delay}s"
+        )
 
         # Create semaphore to limit concurrent operations
         semaphore = asyncio.Semaphore(self.config.max_workers)
@@ -188,21 +198,27 @@ class SimpleBatchProcessor:
 
         for attempt in range(self.config.max_retries):
             try:
-                self.logger.debug(f"Processing item {item_idx+1}, attempt {attempt + 1}/{self.config.max_retries}")
+                self.logger.debug(
+                    f"Processing item {item_idx + 1}, attempt {attempt + 1}/{self.config.max_retries}"
+                )
                 return processor_func(item)
             except Exception as e:
                 last_exception = e
                 self.logger.warning(
-                    f"Item {item_idx+1} failed attempt {attempt + 1}/{self.config.max_retries}: {str(e)}"
+                    f"Item {item_idx + 1} failed attempt {attempt + 1}/{self.config.max_retries}: {str(e)}"
                 )
                 if attempt < self.config.max_retries - 1:
-                    retry_delay = self.config.retry_delay * (attempt + 1)  # Exponential backoff
-                    self.logger.debug(f"Item {item_idx+1}: Retrying in {retry_delay}s...")
+                    retry_delay = self.config.retry_delay * (
+                        attempt + 1
+                    )  # Exponential backoff
+                    self.logger.debug(
+                        f"Item {item_idx + 1}: Retrying in {retry_delay}s..."
+                    )
                     time.sleep(retry_delay)
 
         # All retries failed
         self.logger.error(
-            f"Item {item_idx+1} failed after {self.config.max_retries} attempts"
+            f"Item {item_idx + 1} failed after {self.config.max_retries} attempts"
         )
         raise last_exception
 
@@ -220,22 +236,24 @@ class SimpleBatchProcessor:
             for attempt in range(self.config.max_retries):
                 try:
                     self.logger.debug(
-                        f"Processing async item {item_idx+1}, attempt {attempt + 1}/{self.config.max_retries}"
+                        f"Processing async item {item_idx + 1}, attempt {attempt + 1}/{self.config.max_retries}"
                     )
                     return await async_processor_func(item)
                 except Exception as e:
                     last_exception = e
                     self.logger.warning(
-                        f"Async item {item_idx+1} failed attempt {attempt + 1}/{self.config.max_retries}: {str(e)}"
+                        f"Async item {item_idx + 1} failed attempt {attempt + 1}/{self.config.max_retries}: {str(e)}"
                     )
                     if attempt < self.config.max_retries - 1:
                         retry_delay = self.config.retry_delay * (attempt + 1)
-                        self.logger.debug(f"Async item {item_idx+1}: Retrying in {retry_delay}s...")
+                        self.logger.debug(
+                            f"Async item {item_idx + 1}: Retrying in {retry_delay}s..."
+                        )
                         await asyncio.sleep(retry_delay)
 
             # All retries failed
             self.logger.error(
-                f"Async item {item_idx+1} failed after {self.config.max_retries} attempts"
+                f"Async item {item_idx + 1} failed after {self.config.max_retries} attempts"
             )
             raise last_exception
 

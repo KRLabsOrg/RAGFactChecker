@@ -161,6 +161,82 @@ class LLMHallucinationDataGenerator(
             }
         )
 
+    async def generate_hlcntn_data_async(
+        self, reference_text: str, question: str
+    ) -> HallucinationDataGeneratorOutput:
+        """
+        Perform forward pass for hallucination data generation (async version).
+
+        Args:
+            question (str): The question to be asked.
+            reference_text (str): The reference text to be used for hallucination.
+
+        Returns:
+            HallucinationDataGeneratorOutput: A dictionary containing the following:
+                - "generated_hlcntn_answer" (str): The generated hallucinated answer.
+                - "generated_non_hlcntn_answer" (str): The generated non-hallucinated answer.
+                - "hlcntn_part" (str): The hallucinated details.
+
+        """
+
+        hlcntn_generation_prompt = self.get_model_prompt(
+            reference_documents=reference_text,
+            question=question,
+        )
+        # Define JSON schema for structured outputs
+        hallucination_schema = {
+            "type": "json_schema",
+            "json_schema": {
+                "name": "hallucination_response",
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "non_hallucinated_answer": {
+                            "type": "string",
+                            "description": "Comprehensive, evidence-based answer using only reference documents",
+                        },
+                        "hallucinated_answer": {
+                            "type": "string",
+                            "description": "Same as non_hallucinated_answer but with subtle fictional details added",
+                        },
+                        "hallucinated_details": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "List of each hallucinated fact as separate elements",
+                        },
+                    },
+                    "required": [
+                        "non_hallucinated_answer",
+                        "hallucinated_answer",
+                        "hallucinated_details",
+                    ],
+                    "additionalProperties": False,
+                },
+                "strict": True,
+            },
+        }
+
+        # Use async client for true async operation
+        response = await self.async_model.chat.completions.create(
+            model=self.config.model.llm.generator_model,
+            messages=hlcntn_generation_prompt,
+            temperature=self.config.model.llm.temperature,
+            response_format=hallucination_schema,
+        )
+        hlcntn_data_generation_output = response.choices[0].message.content
+
+        generated_non_hlcntn_answer, generated_hlcntn_answer, hlcntn_part = (
+            self.parse_hlcntn_data_generation_output(hlcntn_data_generation_output)
+        )
+
+        return HallucinationDataGeneratorOutput(
+            **{
+                "generated_non_hlcntn_answer": generated_non_hlcntn_answer,
+                "generated_hlcntn_answer": generated_hlcntn_answer,
+                "hlcntn_part": hlcntn_part,
+            }
+        )
+
     def parse_hlcntn_data_generation_output(
         self, hlcntn_data_generation_output: str
     ) -> tuple[str, str, list[str]]:
@@ -238,7 +314,7 @@ class LLMHallucinationDataGenerator(
         self, reference_texts: list[str], questions: list[str]
     ) -> SimpleBatchResult[HallucinationDataGeneratorOutput]:
         """
-        Generate hallucination data for multiple reference text and question pairs concurrently with async support.
+        Generate hallucination data for multiple reference text and question pairs concurrently with TRUE async support.
 
         Args:
             reference_texts: List of reference texts
@@ -247,21 +323,75 @@ class LLMHallucinationDataGenerator(
         Returns:
             SimpleBatchResult containing HallucinationDataGeneratorOutput for each successful generation
         """
+        import asyncio
+        import time
+
         if len(reference_texts) != len(questions):
             raise ValueError("Reference texts and questions batch sizes must match")
 
-        # Create tuples for processing
-        generation_tasks = list(zip(reference_texts, questions))
+        batch_size = len(reference_texts)
 
-        async def async_process_task(task_tuple):
-            import asyncio
+        # Enhanced logging
+        start_time = time.time()
+        self.logger.info(
+            f"Starting TRUE async batch processing: {batch_size} llm_hallucination_generation_tasks"
+        )
 
-            reference_text, question = task_tuple
-            loop = asyncio.get_event_loop()
-            return await loop.run_in_executor(
-                None, self.generate_hlcntn_data, reference_text, question
+        # Create true async tasks
+        tasks = []
+        for i, (reference_text, question) in enumerate(zip(reference_texts, questions)):
+            self.logger.debug(
+                f"Creating async task {i + 1}/{batch_size} for question: '{question[:50]}...'"
             )
+            task = self.generate_hlcntn_data_async(reference_text, question)
+            tasks.append(task)
 
-        return await self.process_items_concurrently_async(
-            generation_tasks, async_process_task, "hallucination_generation_tasks"
+        # Run all tasks concurrently with progress tracking
+        results = []
+        failed_indices = []
+        errors = []
+
+        try:
+            # Use asyncio.gather to run all tasks concurrently
+            self.logger.info(f"Running {len(tasks)} async tasks concurrently...")
+            task_results = await asyncio.gather(*tasks, return_exceptions=True)
+
+            # Process results
+            for i, result in enumerate(task_results):
+                if isinstance(result, Exception):
+                    self.logger.error(f"Task {i + 1} failed: {str(result)}")
+                    failed_indices.append(i)
+                    errors.append(result)
+                else:
+                    results.append(result)
+                    if (i + 1) % max(
+                        1, len(tasks) // 10
+                    ) == 0:  # Log progress every 10%
+                        progress_pct = ((i + 1) * 100) // len(tasks)
+                        self.logger.info(
+                            f"Progress: {i + 1}/{len(tasks)} tasks completed ({progress_pct}%)"
+                        )
+
+        except Exception as e:
+            self.logger.error(f"Batch async processing failed: {str(e)}")
+            raise
+
+        total_time = time.time() - start_time
+        successful_count = len(results)
+        failed_count = len(failed_indices)
+
+        self.logger.info(
+            f"TRUE async batch processing completed in {total_time:.2f}s: "
+            f"{successful_count} successful, {failed_count} failed"
+        )
+        if failed_count > 0:
+            self.logger.error(f"Failed task indices: {failed_indices}")
+
+        return SimpleBatchResult(
+            results=results,
+            failed_indices=failed_indices,
+            errors=errors,
+            total_time=total_time,
+            successful_count=successful_count,
+            failed_count=failed_count,
         )

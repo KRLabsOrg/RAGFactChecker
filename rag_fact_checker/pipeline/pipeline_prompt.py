@@ -1,10 +1,10 @@
+import json
 from abc import abstractmethod
 
 from easydict import EasyDict as edict
 
 from rag_fact_checker.data import Config
 from rag_fact_checker.pipeline.pipeline_base import PipelineBase
-import json
 
 
 class PipelinePrompt(PipelineBase):
@@ -24,12 +24,12 @@ class PipelinePrompt(PipelineBase):
             config (edict): Configuration file
         """
         super().__init__(config)
-        
+
         # Load prompts from JSON file instead of hardcoded constant
-        with open(config.path.prompts, 'r') as f:
+        with open(config.path.prompts) as f:
             prompt_bank = json.load(f)
         self.prompts = edict(prompt_bank)
-        
+
         self.prompt_templates = self.get_prompt_templates()
         self.message_list_template = self.get_message_list_templates()
 

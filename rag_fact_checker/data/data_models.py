@@ -21,7 +21,9 @@ class TripletGeneratorModelParams:
 @dataclass
 class TripletGeneratorConfig:
     model_name: str = "llm_n_shot"
-    model_params: TripletGeneratorModelParams = field(default_factory=TripletGeneratorModelParams)
+    model_params: TripletGeneratorModelParams = field(
+        default_factory=TripletGeneratorModelParams
+    )
     num_shot: int = 3
 
 
@@ -39,8 +41,12 @@ class LLMConfig:
     generator_model: str = "gpt-4o"
     request_max_try: int = 1
     temperature: float = 0.0
-    api_key: str | None = field(default_factory=lambda: __import__('os').getenv('OPENAI_API_KEY'))
-    base_url: str | None = field(default_factory=lambda: __import__('os').getenv('OPENAI_BASE_URL'))
+    api_key: str | None = field(
+        default_factory=lambda: __import__("os").getenv("OPENAI_API_KEY")
+    )
+    base_url: str | None = field(
+        default_factory=lambda: __import__("os").getenv("OPENAI_BASE_URL")
+    )
 
 
 @dataclass
@@ -55,11 +61,17 @@ class SimpleBatchConfig:
 
 @dataclass
 class ModelConfig:
-    answer_generator: AnswerGeneratorConfig = field(default_factory=AnswerGeneratorConfig)
-    triplet_generator: TripletGeneratorConfig = field(default_factory=TripletGeneratorConfig)
+    answer_generator: AnswerGeneratorConfig = field(
+        default_factory=AnswerGeneratorConfig
+    )
+    triplet_generator: TripletGeneratorConfig = field(
+        default_factory=TripletGeneratorConfig
+    )
     fact_checker: FactCheckerConfig = field(default_factory=FactCheckerConfig)
     llm: LLMConfig = field(default_factory=LLMConfig)
-    hallucination_data_generator: AnswerGeneratorConfig = field(default_factory=AnswerGeneratorConfig)
+    hallucination_data_generator: AnswerGeneratorConfig = field(
+        default_factory=AnswerGeneratorConfig
+    )
 
 
 @dataclass
@@ -71,10 +83,12 @@ class PathDataConfig:
 def _get_default_prompt_path():
     """Get the correct path to prompt_bank.json."""
     import pathlib
+
     # Get the rag_fact_checker package directory
     rag_fact_checker_dir = pathlib.Path(__file__).parent.parent
     prompt_path = rag_fact_checker_dir / "prompt_bank.json"
     return str(prompt_path)
+
 
 @dataclass
 class PathConfig:
@@ -84,12 +98,13 @@ class PathConfig:
 
 @dataclass
 class Config:
-    experiment_setup: ExperimentSetupConfig = field(default_factory=ExperimentSetupConfig)
+    experiment_setup: ExperimentSetupConfig = field(
+        default_factory=ExperimentSetupConfig
+    )
     model: ModelConfig = field(default_factory=ModelConfig)
     path: PathConfig = field(default_factory=PathConfig)
     logger_level: str | None = None
     simple_batch_config: SimpleBatchConfig = field(default_factory=SimpleBatchConfig)
-    
 
 
 @dataclass

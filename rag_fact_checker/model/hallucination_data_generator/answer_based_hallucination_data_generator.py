@@ -22,7 +22,9 @@ class ErrorType(Enum):
     OMISSION = "omission"  # Remove important details
 
 
-class AnswerBasedHallucinationDataGenerator(HallucinationDataGenerator, SimpleBatchProcessingMixin):
+class AnswerBasedHallucinationDataGenerator(
+    HallucinationDataGenerator, SimpleBatchProcessingMixin
+):
     """
     Generates hallucinated data by taking a correct answer and injecting specific types of errors.
 
@@ -129,6 +131,113 @@ class AnswerBasedHallucinationDataGenerator(HallucinationDataGenerator, SimpleBa
         }
 
         response = self.model.chat.completions.create(
+            model=self.config.model.llm.generator_model,
+            messages=hallucination_prompt,
+            temperature=self.config.model.llm.temperature,
+            response_format=answer_hallucination_schema,
+        )
+
+        hallucination_output = response.choices[0].message.content
+
+        if self.config.experiment_setup.log_prompts:
+            self.logger.debug(hallucination_prompt)
+
+        original_answer, hallucinated_answer, error_details = (
+            self.parse_answer_based_hallucination_output(hallucination_output)
+        )
+
+        return HallucinationDataGeneratorOutput(
+            generated_non_hlcntn_answer=original_answer,
+            generated_hlcntn_answer=hallucinated_answer,
+            hlcntn_part=error_details,
+        )
+
+    async def generate_answer_based_hallucination_async(
+        self,
+        correct_answer: str,
+        question: str,
+        error_types: list[ErrorType] | None = None,
+        intensity: float = 0.3,
+    ) -> HallucinationDataGeneratorOutput:
+        """
+        Generate hallucinated data by injecting specific errors into a correct answer (async version).
+
+        Args:
+            correct_answer (str): The known correct answer to introduce errors into
+            question (str): The original question for context
+            error_types (List[ErrorType], optional): Types of errors to inject.
+                Defaults to [FACTUAL, TEMPORAL, NUMERICAL]
+            intensity (float): Error intensity from 0.1 (subtle) to 1.0 (obvious).
+                Defaults to 0.3 (moderate)
+
+        Returns:
+            HallucinationDataGeneratorOutput: Contains original correct answer,
+                hallucinated version, and details of injected errors
+        """
+        if error_types is None:
+            error_types = [ErrorType.FACTUAL, ErrorType.TEMPORAL, ErrorType.NUMERICAL]
+
+        # Validate intensity
+        if not 0.1 <= intensity <= 1.0:
+            raise ValueError("Intensity must be between 0.1 and 1.0")
+
+        hallucination_prompt = self.get_answer_based_model_prompt(
+            correct_answer=correct_answer,
+            question=question,
+            error_types=error_types,
+            intensity=intensity,
+        )
+
+        # Define JSON schema for answer-based hallucination output
+        answer_hallucination_schema = {
+            "type": "json_schema",
+            "json_schema": {
+                "name": "answer_hallucination_response",
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "original_answer": {
+                            "type": "string",
+                            "description": "The original correct answer provided as input",
+                        },
+                        "hallucinated_answer": {
+                            "type": "string",
+                            "description": "The answer with injected errors of specified types and intensity",
+                        },
+                        "injected_errors": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "error_type": {"type": "string"},
+                                    "original_text": {"type": "string"},
+                                    "modified_text": {"type": "string"},
+                                    "description": {"type": "string"},
+                                },
+                                "required": [
+                                    "error_type",
+                                    "original_text",
+                                    "modified_text",
+                                    "description",
+                                ],
+                                "additionalProperties": False,
+                            },
+                            "description": "List of specific errors injected with details",
+                        },
+                    },
+                    "required": [
+                        "original_answer",
+                        "hallucinated_answer",
+                        "injected_errors",
+                    ],
+                    "additionalProperties": False,
+                },
+                "strict": True,
+            },
+        }
+
+        # Use async client for true async operation
+        response = await self.async_model.chat.completions.create(
             model=self.config.model.llm.generator_model,
             messages=hallucination_prompt,
             temperature=self.config.model.llm.temperature,
@@ -262,7 +371,7 @@ class AnswerBasedHallucinationDataGenerator(HallucinationDataGenerator, SimpleBa
             hallucinated_parts = []
 
             for error in injected_errors:
-                modified_text = error.get('modified_text', '').strip()
+                modified_text = error.get("modified_text", "").strip()
                 if modified_text:
                     hallucinated_parts.append(modified_text)
 
@@ -297,7 +406,7 @@ class AnswerBasedHallucinationDataGenerator(HallucinationDataGenerator, SimpleBa
         Args:
             correct_answers: List of correct answers to introduce errors into
             questions: List of questions for context
-            error_types_list: List of error type lists for each answer. If None, defaults to 
+            error_types_list: List of error type lists for each answer. If None, defaults to
                 [FACTUAL, TEMPORAL, NUMERICAL] for all answers
             intensities: List of intensity values for each answer. If None, defaults to 0.3 for all
 
@@ -305,17 +414,21 @@ class AnswerBasedHallucinationDataGenerator(HallucinationDataGenerator, SimpleBa
             SimpleBatchResult containing HallucinationDataGeneratorOutput for each successful generation
         """
         batch_size = len(correct_answers)
-        
+
         if len(questions) != batch_size:
             raise ValueError("Correct answers and questions batch sizes must match")
-        
+
         # Handle defaults for error_types_list
         if error_types_list is None:
-            default_error_types = [ErrorType.FACTUAL, ErrorType.TEMPORAL, ErrorType.NUMERICAL]
+            default_error_types = [
+                ErrorType.FACTUAL,
+                ErrorType.TEMPORAL,
+                ErrorType.NUMERICAL,
+            ]
             error_types_list = [default_error_types] * batch_size
         elif len(error_types_list) != batch_size:
             raise ValueError("Error types list and batch size must match")
-        
+
         # Handle defaults for intensities
         if intensities is None:
             intensities = [0.3] * batch_size
@@ -323,7 +436,9 @@ class AnswerBasedHallucinationDataGenerator(HallucinationDataGenerator, SimpleBa
             raise ValueError("Intensities list and batch size must match")
 
         # Create tuples for processing
-        generation_tasks = list(zip(correct_answers, questions, error_types_list, intensities))
+        generation_tasks = list(
+            zip(correct_answers, questions, error_types_list, intensities)
+        )
 
         def process_single_task(task_tuple):
             correct_answer, question, error_types, intensity = task_tuple
@@ -331,11 +446,13 @@ class AnswerBasedHallucinationDataGenerator(HallucinationDataGenerator, SimpleBa
                 correct_answer=correct_answer,
                 question=question,
                 error_types=error_types,
-                intensity=intensity
+                intensity=intensity,
             )
 
         return self.process_items_concurrently(
-            generation_tasks, process_single_task, "answer_based_hallucination_generation_tasks"
+            generation_tasks,
+            process_single_task,
+            "answer_based_hallucination_generation_tasks",
         )
 
     async def generate_answer_based_hallucination_batch_async(
@@ -346,53 +463,111 @@ class AnswerBasedHallucinationDataGenerator(HallucinationDataGenerator, SimpleBa
         intensities: list[float] | None = None,
     ) -> SimpleBatchResult[HallucinationDataGeneratorOutput]:
         """
-        Generate hallucinated data for multiple correct answer and question pairs concurrently with async support.
+        Generate hallucinated data for multiple correct answer and question pairs concurrently with TRUE async support.
 
         Args:
             correct_answers: List of correct answers to introduce errors into
             questions: List of questions for context
-            error_types_list: List of error type lists for each answer. If None, defaults to 
+            error_types_list: List of error type lists for each answer. If None, defaults to
                 [FACTUAL, TEMPORAL, NUMERICAL] for all answers
             intensities: List of intensity values for each answer. If None, defaults to 0.3 for all
 
         Returns:
             SimpleBatchResult containing HallucinationDataGeneratorOutput for each successful generation
         """
+        import asyncio
+        import time
+
         batch_size = len(correct_answers)
-        
+
         if len(questions) != batch_size:
             raise ValueError("Correct answers and questions batch sizes must match")
-        
+
         # Handle defaults for error_types_list
         if error_types_list is None:
-            default_error_types = [ErrorType.FACTUAL, ErrorType.TEMPORAL, ErrorType.NUMERICAL]
+            default_error_types = [
+                ErrorType.FACTUAL,
+                ErrorType.TEMPORAL,
+                ErrorType.NUMERICAL,
+            ]
             error_types_list = [default_error_types] * batch_size
         elif len(error_types_list) != batch_size:
             raise ValueError("Error types list and batch size must match")
-        
+
         # Handle defaults for intensities
         if intensities is None:
             intensities = [0.3] * batch_size
         elif len(intensities) != batch_size:
             raise ValueError("Intensities list and batch size must match")
 
-        # Create tuples for processing
-        generation_tasks = list(zip(correct_answers, questions, error_types_list, intensities))
+        # Enhanced logging
+        start_time = time.time()
+        self.logger.info(
+            f"Starting TRUE async batch processing: {batch_size} answer_based_hallucination_generation_tasks"
+        )
 
-        async def async_process_task(task_tuple):
-            import asyncio
-
-            correct_answer, question, error_types, intensity = task_tuple
-            loop = asyncio.get_event_loop()
-            return await loop.run_in_executor(
-                None,
-                self.generate_answer_based_hallucination,
-                correct_answer,
-                question,
-                error_types,
-                intensity
+        # Create true async tasks
+        tasks = []
+        for i, (correct_answer, question, error_types, intensity) in enumerate(
+            zip(correct_answers, questions, error_types_list, intensities)
+        ):
+            self.logger.debug(
+                f"Creating async task {i + 1}/{batch_size}: error_types={[et.value for et in error_types]}, intensity={intensity}"
             )
+            task = self.generate_answer_based_hallucination_async(
+                correct_answer=correct_answer,
+                question=question,
+                error_types=error_types,
+                intensity=intensity,
+            )
+            tasks.append(task)
 
-        return await self.process_items_concurrently_async(
-            generation_tasks, async_process_task, "answer_based_hallucination_generation_tasks"
+        # Run all tasks concurrently with progress tracking
+        results = []
+        failed_indices = []
+        errors = []
+
+        try:
+            # Use asyncio.gather to run all tasks concurrently
+            self.logger.info(f"Running {len(tasks)} async tasks concurrently...")
+            task_results = await asyncio.gather(*tasks, return_exceptions=True)
+
+            # Process results
+            for i, result in enumerate(task_results):
+                if isinstance(result, Exception):
+                    self.logger.error(f"Task {i + 1} failed: {str(result)}")
+                    failed_indices.append(i)
+                    errors.append(result)
+                else:
+                    results.append(result)
+                    if (i + 1) % max(
+                        1, len(tasks) // 10
+                    ) == 0:  # Log progress every 10%
+                        progress_pct = ((i + 1) * 100) // len(tasks)
+                        self.logger.info(
+                            f"Progress: {i + 1}/{len(tasks)} tasks completed ({progress_pct}%)"
+                        )
+
+        except Exception as e:
+            self.logger.error(f"Batch async processing failed: {str(e)}")
+            raise
+
+        total_time = time.time() - start_time
+        successful_count = len(results)
+        failed_count = len(failed_indices)
+
+        self.logger.info(
+            f"TRUE async batch processing completed in {total_time:.2f}s: "
+            f"{successful_count} successful, {failed_count} failed"
+        )
+        if failed_count > 0:
+            self.logger.error(f"Failed task indices: {failed_indices}")
+
+        return SimpleBatchResult(
+            results=results,
+            failed_indices=failed_indices,
+            errors=errors,
+            total_time=total_time,
+            successful_count=successful_count,
+            failed_count=failed_count,
         )
