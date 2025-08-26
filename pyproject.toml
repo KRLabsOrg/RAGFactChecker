@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "rag_fact_checker"
-version = "0.1.1"
+version = "0.1.2"
 description = "Fact-checking system using large language models."
 readme = "README.md"
 license = {text = "MIT"}
