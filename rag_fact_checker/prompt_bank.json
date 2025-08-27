@@ -105,7 +105,7 @@
             ]
         },
         "answer_based_hallucination_generation": {
-            "format": "Task: Take the provided correct answer and inject specific types of errors to create a hallucinated version.\n\nQuestion: {question}\n\nCorrect Answer: {correct_answer}\n\nError Types to Inject:\n{error_types}\n\nIntensity Level: {intensity} (scale: {intensity_value})\n\nInstructions:\n1. Keep the overall structure and style of the original answer\n2. Inject errors of the specified types with the given intensity level\n3. Ensure the hallucinated answer remains plausible and coherent\n4. Document each specific change made with precise details\n5. The original_answer field should contain the exact input provided",
+            "format": "Task: Take the provided correct answer and inject specific types of errors to create a hallucinated version.\n\nQuestion: {question}\n\nCorrect Answer: {correct_answer}\n\nError Types to Inject:\n{error_types}\n\nIntensity Level: {intensity} (scale: {intensity_value})\n\nInstructions:\n1. Keep the overall structure and style of the original answer\n2. Inject errors of the specified types with the given intensity level\n3. Ensure the hallucinated answer remains plausible and coherent\n4. Document each specific change made with precise details\n5. Return only the hallucinated_answer and injected_errors - do not repeat the original answer",
             "input_params": [
                 "correct_answer",
                 "question",

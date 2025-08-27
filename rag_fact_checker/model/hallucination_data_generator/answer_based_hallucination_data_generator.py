@@ -82,7 +82,7 @@ class AnswerBasedHallucinationDataGenerator(
             intensity=intensity,
         )
 
-        # Define JSON schema for answer-based hallucination output
+        # Define JSON schema for answer-based hallucination output (optimized - no redundant original_answer)
         answer_hallucination_schema = {
             "type": "json_schema",
             "json_schema": {
@@ -90,10 +90,6 @@ class AnswerBasedHallucinationDataGenerator(
                 "schema": {
                     "type": "object",
                     "properties": {
-                        "original_answer": {
-                            "type": "string",
-                            "description": "The original correct answer provided as input",
-                        },
                         "hallucinated_answer": {
                             "type": "string",
                             "description": "The answer with injected errors of specified types and intensity",
@@ -120,7 +116,6 @@ class AnswerBasedHallucinationDataGenerator(
                         },
                     },
                     "required": [
-                        "original_answer",
                         "hallucinated_answer",
                         "injected_errors",
                     ],
@@ -142,12 +137,12 @@ class AnswerBasedHallucinationDataGenerator(
         if self.config.experiment_setup.log_prompts:
             self.logger.debug(hallucination_prompt)
 
-        original_answer, hallucinated_answer, error_details = (
+        hallucinated_answer, error_details = (
             self.parse_answer_based_hallucination_output(hallucination_output)
         )
 
         return HallucinationDataGeneratorOutput(
-            generated_non_hlcntn_answer=original_answer,
+            generated_non_hlcntn_answer=correct_answer,  # Use input directly - no need to parse redundant data
             generated_hlcntn_answer=hallucinated_answer,
             hlcntn_part=error_details,
         )
@@ -188,7 +183,7 @@ class AnswerBasedHallucinationDataGenerator(
             intensity=intensity,
         )
 
-        # Define JSON schema for answer-based hallucination output
+        # Define JSON schema for answer-based hallucination output (optimized - no redundant original_answer)
         answer_hallucination_schema = {
             "type": "json_schema",
             "json_schema": {
@@ -196,10 +191,6 @@ class AnswerBasedHallucinationDataGenerator(
                 "schema": {
                     "type": "object",
                     "properties": {
-                        "original_answer": {
-                            "type": "string",
-                            "description": "The original correct answer provided as input",
-                        },
                         "hallucinated_answer": {
                             "type": "string",
                             "description": "The answer with injected errors of specified types and intensity",
@@ -226,7 +217,6 @@ class AnswerBasedHallucinationDataGenerator(
                         },
                     },
                     "required": [
-                        "original_answer",
                         "hallucinated_answer",
                         "injected_errors",
                     ],
@@ -249,12 +239,12 @@ class AnswerBasedHallucinationDataGenerator(
         if self.config.experiment_setup.log_prompts:
             self.logger.debug(hallucination_prompt)
 
-        original_answer, hallucinated_answer, error_details = (
+        hallucinated_answer, error_details = (
             self.parse_answer_based_hallucination_output(hallucination_output)
         )
 
         return HallucinationDataGeneratorOutput(
-            generated_non_hlcntn_answer=original_answer,
+            generated_non_hlcntn_answer=correct_answer,  # Use input directly - no need to parse redundant data
             generated_hlcntn_answer=hallucinated_answer,
             hlcntn_part=error_details,
         )
@@ -348,7 +338,7 @@ class AnswerBasedHallucinationDataGenerator(
 
     def parse_answer_based_hallucination_output(
         self, hallucination_output: str
-    ) -> tuple[str, str, list[str]]:
+    ) -> tuple[str, list[str]]:
         """
         Parse JSON output from answer-based hallucination generation.
 
@@ -356,14 +346,13 @@ class AnswerBasedHallucinationDataGenerator(
             hallucination_output (str): JSON output from the model
 
         Returns:
-            tuple: (original_answer, hallucinated_answer, hallucinated_parts_list)
+            tuple: (hallucinated_answer, hallucinated_parts_list)
         """
         import json
 
         try:
             data = json.loads(hallucination_output.strip())
 
-            original_answer = data.get("original_answer", "").strip()
             hallucinated_answer = data.get("hallucinated_answer", "").strip()
 
             # Extract only the modified text (hallucinated parts) as list of strings
@@ -377,20 +366,20 @@ class AnswerBasedHallucinationDataGenerator(
 
             error_details_string = hallucinated_parts
 
-            return original_answer, hallucinated_answer, error_details_string
+            return hallucinated_answer, error_details_string
 
         except (json.JSONDecodeError, KeyError) as e:
             self.logger.warning(
                 f"Error parsing answer-based hallucination output: {str(e)}"
             )
             self.logger.debug(f"Raw output: {hallucination_output}")
-            return "", "", []
+            return "", []
         except Exception as e:
             self.logger.warning(
                 f"Unexpected error parsing answer-based hallucination: {str(e)}"
             )
             self.logger.debug(f"Raw output: {hallucination_output}")
-            return "", "", []
+            return "", []
 
     # Batch processing methods
     def generate_answer_based_hallucination_batch(
