@@ -1,0 +1,67 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rag_fact_checker"
+version = "0.1.5"
+description = "Fact-checking system using large language models."
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "Ilir Osmanaj", email = "ilirosmanaj.94@gmail.com"},
+    {name = "Adam Kovacs", email = "kovacs@krlabs.eu"},
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Text Processing :: Linguistic",
+]
+requires-python = ">=3.11"
+dependencies = [
+    "easydict==1.13",
+    "openai>=1.54.4",
+    "python-dotenv==1.0.1",
+]
+
+[project.urls]
+Homepage = "https://github.com/KRLabsOrg/RAGFactChecker"
+Repository = "https://github.com/KRLabsOrg/RAGFactChecker"
+Issues = "https://github.com/KRLabsOrg/RAGFactChecker/issues"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "ruff>=0.1.0",
+    "mypy>=1.0",
+]
+
+[tool.setuptools.packages.find]
+# This tells setuptools to automatically find packages
+# Same behavior as find_packages() in setup.py
+
+[tool.setuptools.package-data]
+rag_fact_checker = [
+    "prompt_bank.json",
+    "default_config.json",
+]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+ignore = ["E501"]  # Line too long (handled by formatter)
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true

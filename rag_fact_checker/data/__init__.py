@@ -1,19 +1,18 @@
 from rag_fact_checker.data.data_models import (
-    ExperimentSetupConfig,
     AnswerGeneratorConfig,
-    TripletGeneratorModelParams,
-    TripletGeneratorConfig,
-    LLMConfig,
-    ModelConfig,
-    PathDataConfig,
-    PathConfig,
     Config,
-    TripletGeneratorOutput,
+    DirectTextMatchOutput,
+    ExperimentSetupConfig,
     FactCheckerOutput,
     HallucinationDataGeneratorOutput,
-    DirectTextMatchOutput,
+    LLMConfig,
+    ModelConfig,
+    PathConfig,
+    PathDataConfig,
+    TripletGeneratorConfig,
+    TripletGeneratorModelParams,
+    TripletGeneratorOutput,
 )
-
 
 __all__ = [
     "ExperimentSetupConfig",

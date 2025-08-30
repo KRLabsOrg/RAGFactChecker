@@ -1,4 +1,5 @@
-from langchain_openai import ChatOpenAI
+from openai import AsyncOpenAI, OpenAI
+
 from rag_fact_checker.data import Config
 from rag_fact_checker.pipeline.pipeline_base import PipelineBase
 
@@ -7,17 +8,29 @@ class PipelineLLM(PipelineBase):
     """
     A pipeline class for interacting with Large Language Models (LLMs).
     Args:
-        openai (openai.OpenAI): Module for direct interaction with OpenAI API
-                                (not currently used).
-        model (ChatOpenAI): An LLM model instance for generating outputs using
-                            langchian_openai.
+        model (OpenAI): A synchronous OpenAI client instance for generating outputs.
+        async_model (AsyncOpenAI): An asynchronous OpenAI client instance for concurrent operations.
     """
 
     def __init__(self, config: Config):
         super().__init__(config)
-        self.model = ChatOpenAI(
-            model=self.config.model.llm.generator_model,
-            temperature=self.config.model.llm.temperature,
-            max_retries=self.config.model.llm.request_max_try,
-            api_key=self.config.model.llm.api_key,
-        )
+        if self.config.model.llm.base_url:
+            self.model = OpenAI(
+                api_key=self.config.model.llm.api_key,
+                max_retries=self.config.model.llm.request_max_try,
+                base_url=self.config.model.llm.base_url,
+            )
+            self.async_model = AsyncOpenAI(
+                api_key=self.config.model.llm.api_key,
+                max_retries=self.config.model.llm.request_max_try,
+                base_url=self.config.model.llm.base_url,
+            )
+        else:
+            self.model = OpenAI(
+                api_key=self.config.model.llm.api_key,
+                max_retries=self.config.model.llm.request_max_try,
+            )
+            self.async_model = AsyncOpenAI(
+                api_key=self.config.model.llm.api_key,
+                max_retries=self.config.model.llm.request_max_try,
+            )

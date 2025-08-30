@@ -1,20 +1,19 @@
 import os
-from typing import List
 
 from easydict import EasyDict as edict
 
 from rag_fact_checker.data import (
     Config,
     DirectTextMatchOutput,
-    TripletGeneratorOutput,
     HallucinationDataGeneratorOutput,
+    TripletGeneratorOutput,
 )
 from rag_fact_checker.model import model_name_class_mapping
 from rag_fact_checker.pipeline import PipelineBase
 from rag_fact_checker.utils import (
+    DEFAULT_CONFIG,
     ExperimentLogger,
     override_config,
-    DEFAULT_CONFIG,
 )
 
 
@@ -28,13 +27,12 @@ class LLMTripletValidator(PipelineBase):
     """
 
     def __init__(self, input_config: dict = None, openai_api_key: str = None):
-
         if openai_api_key is None:
             openai_api_key = os.getenv("OPENAI_API_KEY")
 
-        assert (
-            openai_api_key is not None
-        ), "OpenAI API key is required. Please pass it as input or set it in the environment."
+        assert openai_api_key is not None, (
+            "OpenAI API key is required. Please pass it as input or set it in the environment."
+        )
 
         config = self.load_config(openai_api_key=openai_api_key, config=input_config)
 
@@ -171,7 +169,7 @@ class LLMTripletValidator(PipelineBase):
         return result
 
     def generate_hlcntn_data(
-        self, question: str, reference_text: List[str]
+        self, question: str, reference_text: list[str]
     ) -> HallucinationDataGeneratorOutput:
         """
         Perform forward pass for hallucination data generation.
